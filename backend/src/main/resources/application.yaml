@@ -1,3 +1,15 @@
 spring:
   application:
     name: backend
+  ai:
+    mcp:
+      server:
+        name: knowledge-mcp
+        version: 1.0.0
+        protocol: STREAMABLE
+        type: SYNC
+        capabilities:
+          tool: true
+          resource: false
+          prompt: false
+          completion: false
