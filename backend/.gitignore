@@ -31,3 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# 本地环境配置，禁止提交敏感信息
+.env
+.env.*
+!.env.example
