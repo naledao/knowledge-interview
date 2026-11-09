@@ -2,6 +2,7 @@ spring:
   # 从项目 .env 文件加载配置，兼容在仓库根目录或 backend 目录启动
   config:
     import:
+      - "optional:file:../.env[.properties]"
       - "optional:file:./.env[.properties]"
       - "optional:file:./backend/.env[.properties]"
   # 启动时自动执行尚未应用的数据库版本迁移
@@ -14,7 +15,7 @@ spring:
     name: ${APP_NAME:backend}
   # MySQL 数据源配置；连接参数优先从环境变量读取
   datasource:
-    url: ${MYSQL_URL:jdbc:mysql://127.0.0.1:3306/knowledge_interview?serverTimezone=Asia/Shanghai}
+    url: ${MYSQL_URL:jdbc:mysql://127.0.0.1:3306/knowledge_interview?serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true}
     username: ${MYSQL_USERNAME:root}
     password: ${MYSQL_PASSWORD}
     driver-class-name: ${MYSQL_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}

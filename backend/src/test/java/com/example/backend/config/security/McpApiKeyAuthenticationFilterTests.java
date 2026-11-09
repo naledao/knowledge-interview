@@ -38,6 +38,31 @@ class McpApiKeyAuthenticationFilterTests {
         assertUnauthorized(null);
     }
 
+    @Test
+    void knowledgeApisRequireValidKey() throws Exception {
+        for (String path : new String[] {"/api/categories", "/api/topics"}) {
+            MockHttpServletRequest missing = new MockHttpServletRequest("GET", path);
+            missing.setServletPath(path);
+            MockHttpServletResponse denied = new MockHttpServletResponse();
+            AtomicBoolean deniedChain = new AtomicBoolean(false);
+            filter.doFilter(missing, denied, (req, res) -> deniedChain.set(true));
+            assertEquals(401, denied.getStatus(), path);
+            assertFalse(deniedChain.get(), path);
+
+            MockHttpServletRequest valid = new MockHttpServletRequest("GET", path);
+            valid.setServletPath(path);
+            valid.addHeader("Authorization", "Bearer test-secret");
+            MockHttpServletResponse allowed = new MockHttpServletResponse();
+            AtomicBoolean allowedChain = new AtomicBoolean(false);
+            filter.doFilter(valid, allowed, (req, res) -> {
+                allowedChain.set(true);
+                assertTrue(SecurityContextHolder.getContext().getAuthentication().isAuthenticated());
+            });
+            assertTrue(allowedChain.get(), path);
+            assertEquals(200, allowed.getStatus(), path);
+            assertNull(SecurityContextHolder.getContext().getAuthentication());
+        }
+    }
     private void assertUnauthorized(String authorization) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/mcp");
         request.setServletPath("/mcp");

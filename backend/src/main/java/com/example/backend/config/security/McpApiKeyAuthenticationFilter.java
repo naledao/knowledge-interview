@@ -27,11 +27,12 @@ public class McpApiKeyAuthenticationFilter extends OncePerRequestFilter {
         this.expectedKey = apiKey.getBytes(StandardCharsets.UTF_8);
     }
 
-    /** 仅校验远程 MCP 端点，其它路径交给安全规则处理。 */
+    /** 校验 MCP 和知识查询接口的 API Key，其它路径交给安全规则处理。 */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
-        return !"/mcp".equals(path) && !path.startsWith("/mcp/");
+        return !"/mcp".equals(path) && !path.startsWith("/mcp/")
+                && !"/api/categories".equals(path) && !"/api/topics".equals(path);
     }
 
     /** 比对 Authorization: Bearer <key>，验证成功后写入本次请求的安全上下文。 */
