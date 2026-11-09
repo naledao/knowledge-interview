@@ -13,3 +13,7 @@ spring:
           resource: false
           prompt: false
           completion: false
+
+mcp:
+  auth:
+    api-key: ${MCP_API_KEY}
