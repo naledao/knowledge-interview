@@ -1,0 +1,18 @@
+/* PC 与移动端共用的基础响应式占位样式。 */
+:root { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1e293b; background: #f8fafc; font-synthesis: none; text-rendering: optimizeLegibility; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+a { color: #2563eb; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.site-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 24px; background: white; border-bottom: 1px solid #e2e8f0; }
+.brand { font-size: 20px; font-weight: 700; color: #0f172a; }
+.site-nav { display: flex; gap: 20px; }
+.site-nav a.router-link-exact-active { font-weight: 700; }
+.site-main { width: min(100% - 40px, 1100px); margin: 36px auto; }
+.page-placeholder { padding: 36px; background: white; border: 1px solid #e2e8f0; border-radius: 14px; }
+.page-placeholder h1 { margin: 0 0 16px; font-size: 28px; }
+.page-placeholder p { line-height: 1.8; }
+.page-id { color: #475569; }
+.page-note { color: #64748b; }
+.back-link { display: inline-block; margin-top: 10px; }
+@media (max-width: 640px) { .site-header { padding: 14px 16px; } .brand { font-size: 18px; } .site-nav { gap: 14px; } .site-main { width: calc(100% - 24px); margin: 16px auto; } .page-placeholder { padding: 22px 18px; } .page-placeholder h1 { font-size: 23px; } }

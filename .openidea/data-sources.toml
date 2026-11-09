@@ -1,0 +1,36 @@
+[[data-source]]
+comment = ""
+database = "knowledge_interview"
+driver = "mysql"
+host = "localhost"
+id = "711475f2-95b9-4ca5-af33-9f397f75ad00"
+name = "knowledge_interview"
+port = 3306
+properties = []
+readOnly = false
+savePassword = false
+ssl = "prefer"
+sslCaFile = ""
+sslCertFile = ""
+sslKeyFile = ""
+url = ""
+urlOnly = false
+user = "kangnasi"
+vendor = ""
+
+[data-source.introspection]
+allDatabases = true
+allSchemas = true
+databases = []
+objectFilter = ""
+schemas = []
+showSystem = false
+showTemplates = false
+
+[data-source.options]
+defaultSchema = ""
+instantClient = ""
+singleDatabase = false
+startupScript = ""
+timeZone = ""
+transaction = "auto"
