@@ -5,6 +5,7 @@ import {
   getCategories, getTopics, getQuestions,
   type KnowledgeCategory, type KnowledgeTopic, type KnowledgeQuestion,
 } from '../api/knowledge'
+import MarkdownContent from '../components/MarkdownContent.vue'
 
 /** 主题详情页：展示所属分类、主题介绍及该主题的问题列表。 */
 const route = useRoute()
@@ -110,7 +111,7 @@ watch(() => route.params.id, () => { void loadTopic() }, { immediate: true })
         <div class="hero-main">
           <p class="eyebrow">KNOWLEDGE TOPIC</p>
           <h1>{{ topic.title }}</h1>
-          <p class="hero-description">{{ topic.description || '围绕本主题系统学习相关问题，逐步巩固知识。' }}</p>
+          <MarkdownContent class="hero-description" size="compact" :source="topic.description || '围绕本主题系统学习相关问题，逐步巩固知识。'" />
           <div class="hero-meta">
             <span class="meta-pill"><strong>{{ sortedQuestions.length }}</strong> 个相关问题</span>
             <RouterLink class="category-link" :to="`/categories/${topic.categoryId}`">返回分类 <span aria-hidden="true">↗</span></RouterLink>
@@ -163,7 +164,7 @@ watch(() => route.params.id, () => { void loadTopic() }, { immediate: true })
 .hero-main { position: relative; z-index: 1; min-width: 0; }
 .eyebrow { margin: 0 0 14px; font-size: 12px; font-weight: 800; color: #6d28d9; letter-spacing: .14em; }
 .topic-hero h1 { margin: 0; font-size: clamp(29px, 4vw, 43px); line-height: 1.3; overflow-wrap: anywhere; }
-.hero-description { max-width: 680px; margin: 21px 0 28px; color: #475569; line-height: 1.85; white-space: pre-line; }
+.hero-description { max-width: 680px; margin: 21px 0 28px; color: #475569; }
 .hero-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 18px; }
 .meta-pill { display: inline-flex; gap: 7px; align-items: baseline; padding: 9px 16px; border: 1px solid #ddd6fe; border-radius: 99px; background: white; font-size: 13px; color: #475569; }
 .meta-pill strong { color: #6d28d9; font-size: 20px; }
@@ -196,7 +197,7 @@ watch(() => route.params.id, () => { void loadTopic() }, { immediate: true })
 @media (max-width: 720px) {
   .topic-page { padding: 22px 16px 60px; }
   .topic-hero { padding: 30px 24px; border-radius: 18px; }
-  .hero-description { font-size: 14px; margin: 16px 0 23px; }
+  .hero-description { margin: 16px 0 23px; }
   .hero-decoration { display: none; }
   .questions-section { padding-top: 38px; }
   .section-heading { align-items: start; }

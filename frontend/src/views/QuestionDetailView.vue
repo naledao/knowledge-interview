@@ -5,6 +5,7 @@ import {
   getCategories, getTopics, getQuestions,
   type KnowledgeCategory, type KnowledgeTopic, type KnowledgeQuestion,
 } from '../api/knowledge'
+import MarkdownContent from '../components/MarkdownContent.vue'
 
 /** 问题详情页：展示问题和答案，提供所属主题导航及上一题、下一题切换。 */
 const route = useRoute()
@@ -145,7 +146,7 @@ watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
         </div>
         <div id='answer-content' class='answer-card'>
           <p v-if='!answerText' class='empty-answer'>该问题尚未添加参考答案。</p>
-          <div v-else-if='showAnswer' class='answer-text'>{{ answerText }}</div>
+          <MarkdownContent v-else-if='showAnswer' class='answer-text' :source='answerText' />
           <p v-else class='hidden-answer'>答案已收起，点击“展开答案”继续阅读。</p>
         </div>
       </section>
@@ -195,7 +196,7 @@ watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
 .answer-toggle { padding: 10px 17px; border: 1px solid #bfdbfe; border-radius: 10px; background: #fff; color: #1d4ed8; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
 .answer-toggle:hover { background: #eff6ff; }
 .answer-card { min-height: 170px; padding: 34px 38px; border: 1px solid #e2e8f0; border-radius: 20px; background: #fff; box-shadow: 0 10px 28px #0f172a08; }
-.answer-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.95; color: #334155; font-size: 16px; }
+.answer-text { line-height: 1.95; }
 .empty-answer, .hidden-answer { margin: 0; color: #64748b; line-height: 1.9; }
 .question-navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 38px; }
 .nav-card { display: flex; flex-direction: column; gap: 13px; padding: 24px 27px; min-height: 117px; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; color: #0f172a; text-decoration: none; transition: border-color .2s, transform .2s, box-shadow .2s; }
@@ -222,7 +223,6 @@ watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
   .answer-section { margin-top: 35px; }
   .answer-heading h2 { font-size: 24px; }
   .answer-card { padding: 24px 22px; border-radius: 16px; }
-  .answer-text { font-size: 15px; }
   .question-navigation { grid-template-columns: 1fr; gap: 14px; }
   .nav-card { min-height: 95px; padding: 20px 22px; }
   .state-panel { padding: 56px 20px; }

@@ -2,6 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { getCategories, getTopics, type KnowledgeCategory, type KnowledgeTopic } from '../api/knowledge'
+import MarkdownContent from '../components/MarkdownContent.vue'
+import { markdownToPlainText } from '../utils/plainText'
 
 /** 分类详情页：展示分类基本信息和所属主题，复用现有只读 API。 */
 const route = useRoute()
@@ -101,7 +103,7 @@ watch(() => route.params.id, () => { void loadCategory() }, { immediate: true })
         <div class='hero-content'>
           <p class='eyebrow'>KNOWLEDGE CATEGORY</p>
           <h1>{{ category.name }}</h1>
-          <p class='category-description'>{{ category.description || '浏览该分类下的知识主题，循序渐进地展开学习。' }}</p>
+          <MarkdownContent class='category-description' size='compact' :source="category.description || '浏览该分类下的知识主题，循序渐进地展开学习。'" />
           <div class='hero-summary'>
             <strong>{{ sortedTopics.length }}</strong>
             <span>个学习主题</span>
@@ -135,7 +137,7 @@ watch(() => route.params.id, () => { void loadCategory() }, { immediate: true })
               <span class='card-arrow' aria-hidden='true'>↗</span>
             </div>
             <h3>{{ topic.title }}</h3>
-            <p class='topic-description'>{{ topic.description || '查看这个主题下的知识内容与相关问题。' }}</p>
+            <p class='topic-description'>{{ markdownToPlainText(topic.description) || '查看这个主题下的知识内容与相关问题。' }}</p>
             <div class='topic-card-footer'>
               <span>查看主题</span>
               <span aria-hidden='true'>→</span>
@@ -164,7 +166,7 @@ watch(() => route.params.id, () => { void loadCategory() }, { immediate: true })
 .hero-content { position: relative; z-index: 1; min-width: 0; }
 .eyebrow { margin: 0 0 15px; color: #2563eb; font-size: 12px; font-weight: 800; letter-spacing: .14em; }
 .category-hero h1 { margin: 0; font-size: clamp(30px, 4vw, 46px); font-weight: 800; line-height: 1.25; overflow-wrap: anywhere; }
-.category-description { max-width: 630px; margin: 22px 0 28px; color: #475569; font-size: 16px; line-height: 1.9; white-space: pre-line; }
+.category-description { max-width: 630px; margin: 22px 0 28px; color: #475569; }
 .hero-summary { display: inline-flex; align-items: baseline; gap: 8px; padding: 10px 17px; border: 1px solid #bfdbfe; border-radius: 999px; background: #fff; color: #475569; font-size: 13px; }
 .hero-summary strong { color: #1d4ed8; font-size: 19px; }
 .hero-art { position: relative; width: 185px; height: 185px; flex: 0 0 185px; }
@@ -185,7 +187,7 @@ watch(() => route.params.id, () => { void loadCategory() }, { immediate: true })
 .topic-index { color: #2563eb; font-size: 13px; font-weight: 800; letter-spacing: .05em; }
 .card-arrow { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 9px; background: #f1f5f9; color: #64748b; font-size: 17px; }
 .topic-card h3 { margin: 20px 0 9px; font-size: 20px; line-height: 1.4; overflow-wrap: anywhere; }
-.topic-description { flex: 1; margin: 0 0 26px; color: #64748b; font-size: 14px; line-height: 1.75; white-space: pre-line; overflow-wrap: anywhere; }
+.topic-description { flex: 1; margin: 0 0 26px; color: #64748b; font-size: 14px; line-height: 1.75; overflow-wrap: anywhere; display: -webkit-box; overflow: hidden; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
 .topic-card-footer { border-top: 1px solid #f1f5f9; padding-top: 15px; color: #2563eb; font-size: 13px; font-weight: 700; }
 .empty-state, .state-panel { padding: 75px 24px; border: 1px solid #e2e8f0; border-radius: 20px; background: #fff; text-align: center; }
 .empty-symbol, .state-symbol { display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto 22px; border-radius: 20px; background: #eff6ff; color: #2563eb; font-size: 38px; }
@@ -200,7 +202,7 @@ watch(() => route.params.id, () => { void loadCategory() }, { immediate: true })
   .category-page { padding: 22px 16px 60px; }
   .category-hero { padding: 30px 24px; border-radius: 18px; }
   .hero-art { display: none; }
-  .category-description { margin: 16px 0 22px; font-size: 14px; }
+  .category-description { margin: 16px 0 22px; }
   .topics-section { padding-top: 38px; }
   .section-heading { align-items: start; }
   .section-description { font-size: 14px; }

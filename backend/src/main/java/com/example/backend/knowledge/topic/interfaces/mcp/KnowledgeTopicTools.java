@@ -17,7 +17,7 @@ public class KnowledgeTopicTools {
     }
 
     /** 创建指定分类下的题目。 */
-    @McpTool(name = "create_knowledge_topic", description = "在指定知识分类下创建题目，同一分类不能有同名题目")
+    @McpTool(name = "create_knowledge_topic", description = "在已有分类下创建知识专题（如Java→集合框架）；主题用于组织一组相关问题，不存放完整问答；创建前先查询该分类已有主题")
     public KnowledgeTopic create(
             @McpToolParam(description = "所属分类ID", required = true) long categoryId,
             @McpToolParam(description = "题目标题，最多255字符", required = true) String title,
@@ -33,7 +33,7 @@ public class KnowledgeTopicTools {
     }
 
     /** 列出全部题目或指定分类下的题目。 */
-    @McpTool(name = "list_knowledge_topics", description = "列出知识题目，可按分类ID筛选；不提供分类ID时查询全部")
+    @McpTool(name = "list_knowledge_topics", description = "列出全部主题或按categoryId查询分类下的主题；整理前优先复用现有主题，避免为每个问题创建新主题")
     public List<KnowledgeTopic> list(
             @McpToolParam(description = "可选的分类ID，不提供则返回全部题目", required = false) Long categoryId) {
         return service.list(categoryId);

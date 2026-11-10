@@ -16,7 +16,7 @@ public class KnowledgeCategoryTools {
         this.service = service;
     }
 
-    @McpTool(name = "create_knowledge_category", description = "创建知识分类，只存储Agent给出的分类信息，不自动整理知识")
+    @McpTool(name = "create_knowledge_category", description = "仅创建较宽泛、稳定的知识领域（如Java、数据库）；分类名称和描述不得存放具体问题、答案或整篇资料；创建前先调用list_knowledge_categories检查是否已有分类")
     // MCP 工具：创建分类。
     public KnowledgeCategory create(
             @McpToolParam(description = "分类名称，最多128字符", required = true) String name,
@@ -31,7 +31,7 @@ public class KnowledgeCategoryTools {
         return service.get(id);
     }
 
-    @McpTool(name = "list_knowledge_categories", description = "列出全部知识分类，按排序值及ID升序排列；创建前可用来检查是否已有同类分类")
+    @McpTool(name = "list_knowledge_categories", description = "列出全部知识分类；知识整理前必须先查询，优先复用已有领域，避免重复创建分类")
     // MCP 工具：列出全部分类。
     public List<KnowledgeCategory> list() {
         return service.list();

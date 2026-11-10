@@ -32,7 +32,14 @@ public class McpApiKeyAuthenticationFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
         return !"/mcp".equals(path) && !path.startsWith("/mcp/")
-                && !"/api/categories".equals(path) && !"/api/topics".equals(path) && !"/api/questions".equals(path);
+                && !"/api/categories".equals(path) && !"/api/topics".equals(path) && !"/api/questions".equals(path)
+                && !"/api/search".equals(path);
+    }
+
+    /** MCP Streamable HTTP 使用异步分发；每次分发都需重新验证 API Key。 */
+    @Override
+    protected boolean shouldNotFilterAsyncDispatch() {
+        return false;
     }
 
     /** 比对 Authorization: Bearer <key>，验证成功后写入本次请求的安全上下文。 */

@@ -17,11 +17,11 @@ public class KnowledgeQuestionTools {
     }
 
     /** 在指定题目下创建问题，可同时保存答案。 */
-    @McpTool(name = "create_knowledge_question", description = "在指定知识题目下添加一个问题，答案可选")
+    @McpTool(name = "create_knowledge_question", description = "在已有主题下创建具体知识问题；questionText保存提问，answerText保存对应答案或解释；不得将问答塞入分类或主题描述，创建前检查重复问题")
     public KnowledgeQuestion create(
             @McpToolParam(description = "所属题目ID", required = true) long topicId,
             @McpToolParam(description = "具体问题内容", required = true) String questionText,
-            @McpToolParam(description = "问题答案或知识说明，可选", required = false) String answerText,
+            @McpToolParam(description = "问题答案或知识说明，Markdown 格式（代码放入带语言标记的代码块），可选", required = false) String answerText,
             @McpToolParam(description = "排序值，非负整数，默认0", required = false) Integer sortOrder) {
         return service.create(topicId, questionText, answerText, sortOrder);
     }
@@ -33,7 +33,7 @@ public class KnowledgeQuestionTools {
     }
 
     /** 列出全部问题，或按所属题目筛选。 */
-    @McpTool(name = "list_knowledge_questions", description = "查询知识问题，可按题目ID筛选；不提供题目ID时返回全部")
+    @McpTool(name = "list_knowledge_questions", description = "列出全部问题或按topicId查询指定主题下的问题；创建前用于检查重复问题，优先复用现有内容")
     public List<KnowledgeQuestion> list(
             @McpToolParam(description = "可选的题目ID，不提供则返回全部问题", required = false) Long topicId) {
         return service.list(topicId);
@@ -45,7 +45,7 @@ public class KnowledgeQuestionTools {
             @McpToolParam(description = "需要更新的问题ID", required = true) long id,
             @McpToolParam(description = "新的所属题目ID，可选", required = false) Long topicId,
             @McpToolParam(description = "新的问题内容，可选", required = false) String questionText,
-            @McpToolParam(description = "新的答案，可选；空字符串表示清除答案", required = false) String answerText,
+            @McpToolParam(description = "新的答案，Markdown 格式，可选；空字符串表示清除答案", required = false) String answerText,
             @McpToolParam(description = "新的排序值，可选", required = false) Integer sortOrder) {
         return service.update(id, topicId, questionText, answerText, sortOrder);
     }

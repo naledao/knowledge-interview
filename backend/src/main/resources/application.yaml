@@ -36,10 +36,14 @@ spring:
         version: ${MCP_SERVER_VERSION:1.0.0}
         protocol: ${MCP_SERVER_PROTOCOL:STREAMABLE}
         type: ${MCP_SERVER_TYPE:SYNC}
+        instructions: >-
+          本知识库采用分类(Category)→主题(Topic)→问题(Question，可附答案)三级结构；分类仅表示领域，主题组织知识点，具体问答必须存入 Question。
+          整理前请获取 organize_knowledge 提示词，先查询并复用已有分类和主题，避免重复创建。
+          AI Agent 负责知识提取与组织；本 MCP 仅负责校验和 CRUD。
         capabilities:
           tool: ${MCP_TOOL_ENABLED:true}
           resource: ${MCP_RESOURCE_ENABLED:false}
-          prompt: ${MCP_PROMPT_ENABLED:false}
+          prompt: ${MCP_PROMPT_ENABLED:true}
           completion: ${MCP_COMPLETION_ENABLED:false}
 
 mcp:

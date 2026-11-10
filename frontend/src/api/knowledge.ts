@@ -69,6 +69,54 @@ export async function getTopics(categoryId?: number): Promise<KnowledgeTopic[]> 
   })
   return data
 }
+export type SearchKind = 'category' | 'topic' | 'question'
+export type SearchType = SearchKind | 'all'
+
+/** 与后端 KnowledgeSearchResult.Hit 保持一致；excerpt 已在服务端截断。 */
+export interface SearchHit {
+  kind: SearchKind
+  id: number
+  title: string
+  excerpt: string
+  breadcrumb: string
+  answerMatch: boolean
+  score: number
+}
+
+/** 与后端 KnowledgeSearchResult 保持一致；page 为服务端修正后的实际页码。 */
+export interface SearchResponse {
+  keyword: string
+  terms: string[]
+  type: SearchType
+  page: number
+  size: number
+  total: number
+  totalPages: number
+  counts: Record<SearchType, number>
+  truncated: boolean
+  items: SearchHit[]
+}
+
+export interface SearchParams {
+  q: string
+  type?: SearchType
+  page?: number
+  size?: number
+}
+
+/** 服务端搜索：匹配、排序和分页均由后端完成；传入 signal 以便取消过期请求。 */
+export async function searchKnowledge(params: SearchParams, signal?: AbortSignal): Promise<SearchResponse> {
+  const { data } = await client.get<SearchResponse>('/search', { params, signal })
+  return data
+}
+
+/** 后端 400 响应为 ProblemDetail，detail 字段可直接展示。 */
+export function errorDetail(error: unknown): string | undefined {
+  if (!axios.isAxiosError(error)) return undefined
+  const detail = (error.response?.data as { detail?: unknown } | undefined)?.detail
+  return typeof detail === 'string' ? detail : undefined
+}
+
 /** 按主题获取问题列表；未传主题 ID 时返回全部问题。 */
 export async function getQuestions(topicId?: number): Promise<KnowledgeQuestion[]> {
   const { data } = await client.get<KnowledgeQuestion[]>('/questions', {
