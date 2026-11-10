@@ -13,7 +13,7 @@ import { RouterLink, RouterView } from 'vue-router'
       <RouterLink to="/" class="brand">知识题库</RouterLink>
       <nav class="site-nav" aria-label="主导航">
         <RouterLink to="/">首页</RouterLink>
-        <RouterLink to="/search">搜索</RouterLink>
+        <RouterLink to="/search">搜索</RouterLink><RouterLink to="/api-key">密钥设置</RouterLink>
       </nav>
     </header>
     <main class="site-main">

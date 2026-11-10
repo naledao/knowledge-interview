@@ -25,6 +25,7 @@ public class McpSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/mcp", "/mcp/**").hasRole("MCP_AGENT")
                        .requestMatchers(HttpMethod.GET, "/api/categories", "/api/topics").hasRole("MCP_AGENT")
+                        .requestMatchers(HttpMethod.GET, "/", "/index.html", "/favicon.ico", "/assets/**", "/categories/**", "/topics/**", "/questions/**", "/search", "/api-key").permitAll()
                         .anyRequest().denyAll())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(
                         (request, response, exception) -> response.sendError(HttpStatus.UNAUTHORIZED.value())))

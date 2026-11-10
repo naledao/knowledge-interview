@@ -12,6 +12,7 @@ const router = createRouter({
     { path: '/topics/:id', name: 'topic-detail', component: () => import('../views/TopicDetailView.vue'), meta: { title: '主题详情' } },
     { path: '/questions/:id', name: 'question-detail', component: () => import('../views/QuestionDetailView.vue'), meta: { title: '问题详情' } },
     { path: '/search', name: 'search', component: () => import('../views/SearchView.vue'), meta: { title: '搜索结果' } },
+    { path: '/api-key', name: 'api-key', component: () => import('../views/ApiKeyView.vue'), meta: { title: 'API Key 验证' } },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('../views/NotFoundView.vue'), meta: { title: '页面不存在' } },
   ],
 })
