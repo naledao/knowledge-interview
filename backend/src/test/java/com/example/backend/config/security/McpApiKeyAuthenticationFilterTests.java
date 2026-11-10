@@ -40,7 +40,7 @@ class McpApiKeyAuthenticationFilterTests {
 
     @Test
     void knowledgeApisRequireValidKey() throws Exception {
-        for (String path : new String[] {"/api/categories", "/api/topics"}) {
+        for (String path : new String[] {"/api/categories", "/api/topics", "/api/questions"}) {
             MockHttpServletRequest missing = new MockHttpServletRequest("GET", path);
             missing.setServletPath(path);
             MockHttpServletResponse denied = new MockHttpServletResponse();

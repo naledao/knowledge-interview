@@ -2,6 +2,8 @@ package com.example.backend.knowledge.read.interfaces.rest;
 
 import com.example.backend.knowledge.category.application.KnowledgeCategoryApplicationService;
 import com.example.backend.knowledge.category.domain.model.KnowledgeCategory;
+import com.example.backend.knowledge.question.application.KnowledgeQuestionApplicationService;
+import com.example.backend.knowledge.question.domain.model.KnowledgeQuestion;
 import com.example.backend.knowledge.topic.application.KnowledgeTopicApplicationService;
 import com.example.backend.knowledge.topic.domain.model.KnowledgeTopic;
 import java.util.List;
@@ -17,13 +19,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class KnowledgeReadControllerTests {
     private KnowledgeCategoryApplicationService categoryService;
     private KnowledgeTopicApplicationService topicService;
+    private KnowledgeQuestionApplicationService questionService;
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
         categoryService = mock(KnowledgeCategoryApplicationService.class);
         topicService = mock(KnowledgeTopicApplicationService.class);
-        mvc = MockMvcBuilders.standaloneSetup(new KnowledgeReadController(categoryService, topicService)).build();
+        questionService = mock(KnowledgeQuestionApplicationService.class);
+        mvc = MockMvcBuilders.standaloneSetup(new KnowledgeReadController(categoryService, topicService, questionService)).build();
     }
 
     @Test
@@ -54,5 +58,25 @@ class KnowledgeReadControllerTests {
                 .andExpect(status().isOk())
                 .andExpect(content().json("[]"));
         verify(topicService).list(2L);
+    }
+    @Test
+    void listsAllQuestions() throws Exception {
+        when(questionService.list(null)).thenReturn(List.of(
+                new KnowledgeQuestion(7L, 9L, "什么是依赖注入？", "由容器提供依赖", 0, null, null)));
+        mvc.perform(get("/api/questions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(7))
+                .andExpect(jsonPath("$[0].topicId").value(9))
+                .andExpect(jsonPath("$[0].questionText").value("什么是依赖注入？"));
+        verify(questionService).list(null);
+    }
+
+    @Test
+    void filtersQuestionsByTopicId() throws Exception {
+        when(questionService.list(9L)).thenReturn(List.of());
+        mvc.perform(get("/api/questions").param("topicId", "9"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
+        verify(questionService).list(9L);
     }
 }
