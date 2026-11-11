@@ -35,7 +35,7 @@ hljs.registerAliases(['properties', 'toml', 'conf'], { languageName: 'ini' })
 hljs.registerAliases(['proto'], { languageName: 'protobuf' })
 hljs.registerAliases(['text', 'txt'], { languageName: 'plaintext' })
 
-const md: MarkdownIt = new MarkdownIt({
+const md = new MarkdownIt({
   html: false,
   linkify: true,
   breaks: true,
@@ -67,7 +67,7 @@ md.renderer.rules.heading_close = (tokens, idx, options, _env, self) => {
 /** 站外链接在新窗口打开，并切断 opener 引用。 */
 md.renderer.rules.link_open = (tokens, idx, options, _env, self) => {
   const token = tokens[idx]!
-  if (/^https?:\/\//i.test(token.attrGet('href') ?? '')) {
+  if (/^https?:\/\//i.test(String(token.attrGet('href') ?? ''))) {
     token.attrSet('target', '_blank')
     token.attrSet('rel', 'noopener noreferrer')
   }
@@ -80,7 +80,7 @@ md.renderer.rules.table_open = (tokens, idx, options, _env, self) =>
 md.renderer.rules.table_close = (tokens, idx, options, _env, self) =>
   `${self.renderToken(tokens, idx, options)}</div>`
 
-md.renderer.rules.image = (tokens, idx, options, env, self) => {
+md.renderer.rules.image = (tokens, idx, options, _env, self) => {
   tokens[idx]!.attrSet('loading', 'lazy')
   return self.renderToken(tokens, idx, options)
 }

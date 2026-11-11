@@ -6,6 +6,8 @@ import {
   type KnowledgeCategory, type KnowledgeTopic, type KnowledgeQuestion,
 } from '../api/knowledge'
 import MarkdownContent from '../components/MarkdownContent.vue'
+import HtmlAnswerRenderer from '../components/HtmlAnswerRenderer.vue'
+import { isHtmlAnswer } from '../utils/answerFormat'
 
 /** 问题详情页：展示问题和答案，提供所属主题导航及上一题、下一题切换。 */
 const route = useRoute()
@@ -30,6 +32,7 @@ const currentIndex = computed(() => siblingQuestions.value.findIndex((item) => i
 const previousQuestion = computed(() => currentIndex.value > 0 ? siblingQuestions.value[currentIndex.value - 1] ?? null : null)
 const nextQuestion = computed(() => currentIndex.value >= 0 ? siblingQuestions.value[currentIndex.value + 1] ?? null : null)
 const answerText = computed(() => question.value?.answerText?.trim() || '')
+const answerIsHtml = computed(() => isHtmlAnswer(answerText.value))
 
 /** 校验路由参数，避免无效 ID 和超出安全整数范围的 ID。 */
 function parseQuestionId(value: unknown): number | null {
@@ -144,8 +147,9 @@ watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
             {{ showAnswer ? '收起答案' : '展开答案' }}
           </button>
         </div>
-        <div id='answer-content' class='answer-card'>
+        <div id='answer-content' class='answer-card' :class="{ 'answer-card-html': answerIsHtml }">
           <p v-if='!answerText' class='empty-answer'>该问题尚未添加参考答案。</p>
+          <HtmlAnswerRenderer v-else-if='showAnswer && answerIsHtml' :source='answerText' />
           <MarkdownContent v-else-if='showAnswer' class='answer-text' :source='answerText' />
           <p v-else class='hidden-answer'>答案已收起，点击“展开答案”继续阅读。</p>
         </div>
@@ -196,6 +200,7 @@ watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
 .answer-toggle { padding: 10px 17px; border: 1px solid #bfdbfe; border-radius: 10px; background: #fff; color: #1d4ed8; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
 .answer-toggle:hover { background: #eff6ff; }
 .answer-card { min-height: 170px; padding: 34px 38px; border: 1px solid #e2e8f0; border-radius: 20px; background: #fff; box-shadow: 0 10px 28px #0f172a08; }
+.answer-card.answer-card-html { min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible; }
 .answer-text { line-height: 1.95; }
 .empty-answer, .hidden-answer { margin: 0; color: #64748b; line-height: 1.9; }
 .question-navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 38px; }

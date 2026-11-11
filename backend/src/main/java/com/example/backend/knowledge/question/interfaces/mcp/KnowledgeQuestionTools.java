@@ -17,11 +17,11 @@ public class KnowledgeQuestionTools {
     }
 
     /** 在指定题目下创建问题，可同时保存答案。 */
-    @McpTool(name = "create_knowledge_question", description = "在已有主题下创建具体知识问题；questionText保存提问，answerText保存对应答案或解释；不得将问答塞入分类或主题描述，创建前检查重复问题")
+    @McpTool(name = "create_knowledge_question", description = "在已有主题下创建具体知识问题；questionText保存提问，answerText保存浅色主题的 HTML/CSS/JS 参考答案；不得将问答塞入分类或主题描述，创建前检查重复问题")
     public KnowledgeQuestion create(
             @McpToolParam(description = "所属题目ID", required = true) long topicId,
             @McpToolParam(description = "具体问题内容", required = true) String questionText,
-            @McpToolParam(description = "问题答案或知识说明，Markdown 格式（代码放入带语言标记的代码块），可选", required = false) String answerText,
+            @McpToolParam(description = "参考答案，完整 HTML 文档，采用浅色主题并内联 CSS 和必要的 JavaScript；不使用 Markdown 代码围栏，可选", required = false) String answerText,
             @McpToolParam(description = "排序值，非负整数，默认0", required = false) Integer sortOrder) {
         return service.create(topicId, questionText, answerText, sortOrder);
     }
@@ -45,7 +45,7 @@ public class KnowledgeQuestionTools {
             @McpToolParam(description = "需要更新的问题ID", required = true) long id,
             @McpToolParam(description = "新的所属题目ID，可选", required = false) Long topicId,
             @McpToolParam(description = "新的问题内容，可选", required = false) String questionText,
-            @McpToolParam(description = "新的答案，Markdown 格式，可选；空字符串表示清除答案", required = false) String answerText,
+            @McpToolParam(description = "新的参考答案，完整 HTML 文档（内联 CSS 与必要的 JavaScript），可选；空字符串表示清除答案", required = false) String answerText,
             @McpToolParam(description = "新的排序值，可选", required = false) Integer sortOrder) {
         return service.update(id, topicId, questionText, answerText, sortOrder);
     }

@@ -26,7 +26,7 @@ public class KnowledgeOrganizePrompt {
     }
 
     /** 客户端通过 prompts/get 获取完整规范，由 Agent 决定如何整理。 */
-    @McpPrompt(name = "organize_knowledge", title = "知识整理规范", description = "按分类→主题→问题及答案的三级结构整理知识；先查询并复用已有节点")
+    @McpPrompt(name = "organize_knowledge", title = "知识整理规范", description = "按分类→主题→问题整理知识，参考答案使用浅色主题 HTML/CSS/JS")
     public GetPromptResult organizeKnowledge() {
         return GetPromptResult.builder(List.of(
                 new PromptMessage(Role.USER, TextContent.builder(rules).build())))
