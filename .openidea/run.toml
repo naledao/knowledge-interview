@@ -29,3 +29,12 @@ debug-adapter = "java-debug"
 folder = "Knowledge"
 before-launch = [{ kind = "run", target = "user:frontend-build" }]
 params = { mainClass = "com.example.backend.BackendApplication", classpath = "${classpath}", programArgs = "--spring.web.resources.static-locations=file:../frontend/dist/,classpath:/static/" }
+
+[[configurations]]
+id = "user:android-emulator"
+name = "Android: 前端打包并运行 WebView (API 34)"
+kind = "shell"
+command = "powershell.exe"
+args = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "run-android.ps1"]
+cwd = "Android"
+folder = "Android"

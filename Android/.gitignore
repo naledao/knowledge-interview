@@ -1,0 +1,11 @@
+.gradle/
+.idea/
+build/
+**/build/
+local.properties
+*.iml
+captures/
+app/.classpath
+app/bin/
+app/src/main/assets/www/
+app/build.gradle.before-*.bak
