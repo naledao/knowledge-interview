@@ -23,6 +23,7 @@ public class KnowledgeQuestionTools {
             @McpToolParam(description = "具体问题内容", required = true) String questionText,
             @McpToolParam(description = "参考答案，完整 HTML 文档，采用浅色主题并内联 CSS 和必要的 JavaScript；不使用 Markdown 代码围栏，可选", required = false) String answerText,
             @McpToolParam(description = "排序值，非负整数，默认0", required = false) Integer sortOrder) {
+        McpHtmlAnswerValidator.validate(answerText);
         return service.create(topicId, questionText, answerText, sortOrder);
     }
 
@@ -47,6 +48,7 @@ public class KnowledgeQuestionTools {
             @McpToolParam(description = "新的问题内容，可选", required = false) String questionText,
             @McpToolParam(description = "新的参考答案，完整 HTML 文档（内联 CSS 与必要的 JavaScript），可选；空字符串表示清除答案", required = false) String answerText,
             @McpToolParam(description = "新的排序值，可选", required = false) Integer sortOrder) {
+        McpHtmlAnswerValidator.validate(answerText);
         return service.update(id, topicId, questionText, answerText, sortOrder);
     }
 

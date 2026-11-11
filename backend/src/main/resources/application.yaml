@@ -39,6 +39,8 @@ spring:
         instructions: >-
           本知识库采用分类(Category)→主题(Topic)→问题(Question，可附答案)三级结构；分类仅表示领域，主题组织知识点，具体问答必须存入 Question。
           整理前请获取 organize_knowledge 提示词，先查询并复用已有分类和主题，避免重复创建。
+          创建或更新问题的非空 answerText 必须是完整的浅色主题 HTML 文档，包含 DOCTYPE、html/head/body、内联 CSS 和移动端 viewport；按需使用内联 JavaScript，不使用 Markdown 代码围栏或外部资源。
+          MCP 写入工具会校验新提交的答案格式，不符合要求时请根据错误信息修正后重试；已有答案不强制转换。
           AI Agent 负责知识提取与组织；本 MCP 仅负责校验和 CRUD。
         capabilities:
           tool: ${MCP_TOOL_ENABLED:true}
