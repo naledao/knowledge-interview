@@ -1,6 +1,8 @@
 package com.example.backend.knowledge.question.domain.repository;
 
 import com.example.backend.knowledge.question.domain.model.KnowledgeQuestion;
+import com.example.backend.knowledge.shared.domain.model.PageRequest;
+import com.example.backend.knowledge.shared.domain.model.PagedResult;
 import java.util.List;
 import java.util.Optional;
 
@@ -9,9 +11,14 @@ public interface KnowledgeQuestionRepository {
     /** 根据主键查询问题。 */
     Optional<KnowledgeQuestion> findById(long id);
     /** 查询全部问题。 */
+    /** 数据库分页查询，返回当前页及总数。 */
+    PagedResult<KnowledgeQuestion> findPage(Long topicId, PageRequest request);
     List<KnowledgeQuestion> findAll();
     /** 查询指定题目下的问题。 */
     List<KnowledgeQuestion> findByTopicId(long topicId);
+    /** 查询同一主题中按业务排序紧邻的上一题和下一题。 */
+    Optional<KnowledgeQuestion> findPrevious(long topicId, int sortOrder, long id);
+    Optional<KnowledgeQuestion> findNext(long topicId, int sortOrder, long id);
     /** 创建问题并返回数据库生成的主键。 */
     long insert(KnowledgeQuestion question);
     /** 更新问题并返回受影响行数。 */

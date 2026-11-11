@@ -32,7 +32,7 @@ public class McpApiKeyAuthenticationFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
         return !"/mcp".equals(path) && !path.startsWith("/mcp/")
-                && !"/api/categories".equals(path) && !"/api/topics".equals(path) && !"/api/questions".equals(path)
+                && !"/api/categories".equals(path) && !path.startsWith("/api/categories/") && !"/api/topics".equals(path) && !path.startsWith("/api/topics/") && !"/api/questions".equals(path) && !path.startsWith("/api/questions/")
                 && !"/api/search".equals(path);
     }
 

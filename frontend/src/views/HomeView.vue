@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCategories, getTopics, type KnowledgeCategory, type KnowledgeTopic } from '../api/knowledge'
 import { markdownToPlainText } from '../utils/plainText'
+import ListPagination from '../components/ListPagination.vue'
 
 const router = useRouter()
 const keyword = ref('')
@@ -14,6 +15,8 @@ interface HomeCategory extends KnowledgeCategory { icon: string; tone: string; t
 interface HomeRecent { id: number; category: string; title: string; description: string; icon: string; tone: string }
 const categories = ref<HomeCategory[]>([])
 const recentItems = ref<HomeRecent[]>([])
+const categoryPage = ref(1)
+const categoryPages = ref(0)
 const palette = [
   { icon: '💻', tone: 'blue' }, { icon: '⚙️', tone: 'purple' },
   { icon: '🗄️', tone: 'orange' }, { icon: '🧩', tone: 'green' },
@@ -38,17 +41,18 @@ async function loadHome() {
   loading.value = true
   error.value = ''
   try {
-    const [categoryData, topicData] = await Promise.all([getCategories(), getTopics()])
-    const names = new Map(categoryData.map((category) => [category.id, category.name]))
-    categories.value = [...categoryData]
+    const [categoryData, topicData] = await Promise.all([getCategories(categoryPage.value), getTopics()])
+    categoryPages.value = categoryData.pages
+    const names = new Map(categoryData.items.map((category) => [category.id, category.name]))
+    categories.value = [...categoryData.items]
       .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
       .map((category, index) => ({
         ...category,
         description: markdownToPlainText(category.description),
         ...palette[index % palette.length]!,
-        tags: topicData.filter((topic) => topic.categoryId === category.id).slice(0, 3).map((topic) => topic.title),
+        tags: topicData.items.filter((topic) => topic.categoryId === category.id).slice(0, 3).map((topic) => topic.title),
       }))
-    recentItems.value = [...topicData]
+    recentItems.value = [...topicData.items]
       .sort((a, b) => timestamp(b.updatedAt || b.createdAt) - timestamp(a.updatedAt || a.createdAt) || b.id - a.id)
       .slice(0, 5)
       .map((topic: KnowledgeTopic, index) => ({
@@ -67,6 +71,12 @@ async function loadHome() {
   } finally {
     loading.value = false
   }
+}
+
+function changeCategoryPage(page: number) {
+  if (page < 1 || page > categoryPages.value || page === categoryPage.value) return
+  categoryPage.value = page
+  void loadHome()
 }
 
 function search(value = keyword.value) {
@@ -108,6 +118,7 @@ onMounted(loadHome)
     <section class="home-section categories-section" aria-labelledby="categories-title">
       <div class="section-header"><div><div class="section-kicker">EXPLORE TOPICS <span></span></div><h2 id="categories-title">探索知识领域</h2><p>从感兴趣的方向出发，一步步构建自己的知识地图。</p></div><RouterLink to="/search" class="section-more">查找知识点 <span aria-hidden="true">→</span></RouterLink></div>
       <div v-if="loading" class="home-status" role="status">正在加载知识分类...</div><div v-else-if="error" class="home-status home-error" role="alert">{{ error }} <button type="button" @click="loadHome">重试</button></div><div v-else-if="!categories.length" class="home-status">暂无知识分类</div><div v-else class="category-grid"><RouterLink v-for="category in categories" :key="category.id" :to="'/categories/' + category.id" class="category-card" :class="'tone-' + category.tone"><div class="category-top"><span class="category-icon" aria-hidden="true">{{ category.icon }}</span><span class="card-arrow" aria-hidden="true">↗</span></div><h3>{{ category.name }}</h3><p>{{ category.description }}</p><div v-if="category.tags.length" class="category-tags"><span v-for="tag in category.tags" :key="tag">{{ tag }}</span></div></RouterLink></div>
+      <ListPagination :page-num="categoryPage" :pages="categoryPages" :loading="loading" @change="changeCategoryPage" />
     </section>
 
     <section class="home-section bottom-section" aria-label="近期内容与学习指南">

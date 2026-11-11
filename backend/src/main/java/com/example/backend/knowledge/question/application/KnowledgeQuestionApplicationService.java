@@ -1,8 +1,11 @@
 package com.example.backend.knowledge.question.application;
 
+import com.example.backend.knowledge.question.application.dto.QuestionNeighbors;
 import com.example.backend.knowledge.question.domain.model.KnowledgeQuestion;
 import com.example.backend.knowledge.question.domain.repository.KnowledgeQuestionRepository;
 import com.example.backend.knowledge.topic.domain.repository.KnowledgeTopicRepository;
+import com.example.backend.knowledge.shared.domain.model.PageRequest;
+import com.example.backend.knowledge.shared.domain.model.PagedResult;
 import java.util.List;
 import java.util.NoSuchElementException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -45,12 +48,27 @@ public class KnowledgeQuestionApplicationService {
 
     /** 查询问题：指定题目时只返回该题目的问题，否则返回全部问题。 */
     @Transactional(readOnly = true)
-    public List<KnowledgeQuestion> list(Long topicId) {
-        if (topicId == null) return repository.findAll();
-        ensureTopicExists(topicId);
-        return repository.findByTopicId(topicId);
+    public PagedResult<KnowledgeQuestion> list(Long topicId, PageRequest request) {
+        if (topicId != null) ensureTopicExists(topicId);
+        return repository.findPage(topicId, request);
     }
 
+    /** 保留网站 REST 接口原有列表查询行为，MCP 工具只使用分页方法。 */
+    @Transactional(readOnly = true)
+    public List<KnowledgeQuestion> list(Long topicId) {
+        if (topicId == null) return repository.findAll(); ensureTopicExists(topicId); return repository.findByTopicId(topicId);
+    }
+
+    /** 数据库定向查询上一题和下一题，避免读取整个题目列表及 HTML 答案。 */
+    @Transactional(readOnly = true)
+    public QuestionNeighbors neighbors(long id) {
+        KnowledgeQuestion current = get(id);
+        var previous = repository.findPrevious(current.topicId(), current.sortOrder(), id)
+                .map(item -> new QuestionNeighbors.QuestionLink(item.id(), item.questionText())).orElse(null);
+        var next = repository.findNext(current.topicId(), current.sortOrder(), id)
+                .map(item -> new QuestionNeighbors.QuestionLink(item.id(), item.questionText())).orElse(null);
+        return new QuestionNeighbors(previous, next);
+    }
     /** 更新问题；未提供的字段保留原值，答案传空字符串可清除。 */
     @Transactional
     public KnowledgeQuestion update(long id, Long topicId, String questionText,

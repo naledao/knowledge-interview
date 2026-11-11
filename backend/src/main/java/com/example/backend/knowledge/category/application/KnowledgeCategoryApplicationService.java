@@ -2,6 +2,8 @@ package com.example.backend.knowledge.category.application;
 
 import com.example.backend.knowledge.category.domain.model.KnowledgeCategory;
 import com.example.backend.knowledge.category.domain.repository.KnowledgeCategoryRepository;
+import com.example.backend.knowledge.shared.domain.model.PageRequest;
+import com.example.backend.knowledge.shared.domain.model.PagedResult;
 import java.util.List;
 import java.util.NoSuchElementException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -40,6 +42,12 @@ public class KnowledgeCategoryApplicationService {
 
     @Transactional(readOnly = true)
     /** 获取全部分类。 */
+    public PagedResult<KnowledgeCategory> list(PageRequest request) {
+        return repository.findPage(request);
+    }
+
+    /** 保留网站 REST 接口原有列表查询行为，MCP 工具只使用分页方法。 */
+    @Transactional(readOnly = true)
     public List<KnowledgeCategory> list() {
         return repository.findAll();
     }

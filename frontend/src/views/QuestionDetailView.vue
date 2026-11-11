@@ -1,40 +1,33 @@
 <script setup lang='ts'>
+import axios from 'axios'
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
-  getCategories, getTopics, getQuestions,
-  type KnowledgeCategory, type KnowledgeTopic, type KnowledgeQuestion,
+  getCategory, getTopic, getQuestion, getQuestionNeighbors,
+  type KnowledgeCategory, type KnowledgeTopic, type KnowledgeQuestion, type QuestionNeighbors,
 } from '../api/knowledge'
 import MarkdownContent from '../components/MarkdownContent.vue'
 import HtmlAnswerRenderer from '../components/HtmlAnswerRenderer.vue'
 import { isHtmlAnswer } from '../utils/answerFormat'
 
-/** 问题详情页：展示问题和答案，提供所属主题导航及上一题、下一题切换。 */
+/** 问题详情通过主键获取完整答案，前后题由轻量查询提供，避免加载全部问题。 */
 const route = useRoute()
 const question = ref<KnowledgeQuestion | null>(null)
 const topic = ref<KnowledgeTopic | null>(null)
 const category = ref<KnowledgeCategory | null>(null)
-const questions = ref<KnowledgeQuestion[]>([])
+const neighbors = ref<QuestionNeighbors>({ previous: null, next: null })
 const loading = ref(true)
 const errorMessage = ref('')
 const notFound = ref(false)
 const showAnswer = ref(true)
 let requestVersion = 0
 
-/** 仅在同一主题内切换问题，并按业务排序值及 ID 排序。 */
-const siblingQuestions = computed(() => {
-  if (!question.value) return []
-  return questions.value
-    .filter((item) => item.topicId === question.value?.topicId)
-    .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
-})
-const currentIndex = computed(() => siblingQuestions.value.findIndex((item) => item.id === question.value?.id))
-const previousQuestion = computed(() => currentIndex.value > 0 ? siblingQuestions.value[currentIndex.value - 1] ?? null : null)
-const nextQuestion = computed(() => currentIndex.value >= 0 ? siblingQuestions.value[currentIndex.value + 1] ?? null : null)
+const previousQuestion = computed(() => neighbors.value.previous)
+const nextQuestion = computed(() => neighbors.value.next)
 const answerText = computed(() => question.value?.answerText?.trim() || '')
 const answerIsHtml = computed(() => isHtmlAnswer(answerText.value))
 
-/** 校验路由参数，避免无效 ID 和超出安全整数范围的 ID。 */
+/** 校验 URL 中的数字主键。 */
 function parseQuestionId(value: unknown): number | null {
   if (typeof value !== 'string' || !/^[1-9][0-9]*$/.test(value)) return null
   const id = Number(value)
@@ -46,7 +39,7 @@ async function loadQuestion() {
   question.value = null
   topic.value = null
   category.value = null
-  questions.value = []
+  neighbors.value = { previous: null, next: null }
   loading.value = true
   errorMessage.value = ''
   notFound.value = false
@@ -60,33 +53,30 @@ async function loadQuestion() {
   }
 
   try {
-    // 复用现有只读接口：问题列表用于定位当前问题以及计算相邻问题。
-    const [questionList, topicList, categoryList] = await Promise.all([
-      getQuestions(), getTopics(), getCategories(),
-    ])
-    // 切换上一题或下一题时，忽略过期的异步响应。
+    const current = await getQuestion(questionId)
     if (version !== requestVersion) return
-
-    const selected = questionList.find((item) => item.id === questionId)
-    if (!selected) {
-      notFound.value = true
-      return
-    }
-
-    question.value = selected
-    questions.value = questionList
-    topic.value = topicList.find((item) => item.id === selected.topicId) ?? null
-    category.value = categoryList.find((item) => item.id === topic.value?.categoryId) ?? null
+    const [currentTopic, adjacent] = await Promise.all([
+      getTopic(current.topicId), getQuestionNeighbors(questionId),
+    ])
+    if (version !== requestVersion) return
+    const currentCategory = await getCategory(currentTopic.categoryId)
+    if (version !== requestVersion) return
+    question.value = current
+    topic.value = currentTopic
+    category.value = currentCategory
+    neighbors.value = adjacent
   } catch (error) {
     if (version !== requestVersion) return
-    errorMessage.value = '问题数据加载失败，请检查网络连接后重试。'
-    console.error('问题详情加载失败', error)
+    if (axios.isAxiosError(error) && error.response?.status === 404) notFound.value = true
+    else {
+      errorMessage.value = '问题数据加载失败，请检查网络连接后重试。'
+      console.error('问题详情加载失败', error)
+    }
   } finally {
     if (version === requestVersion) loading.value = false
   }
 }
 
-/** 同组件内路由参数改变时重新读取数据。 */
 watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
 </script>
 
@@ -128,7 +118,7 @@ watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
       <header class='question-hero'>
         <div class='hero-header'>
           <span class='eyebrow'>KNOWLEDGE QUESTION</span>
-          <span v-if='currentIndex >= 0' class='progress-pill'>第 {{ currentIndex + 1 }} / {{ siblingQuestions.length }} 题</span>
+          <span class='progress-pill'>知识问题</span>
         </div>
         <h1>{{ question.questionText }}</h1>
         <div class='hero-footer'>

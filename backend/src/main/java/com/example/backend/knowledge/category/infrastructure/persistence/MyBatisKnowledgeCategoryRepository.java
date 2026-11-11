@@ -2,6 +2,10 @@ package com.example.backend.knowledge.category.infrastructure.persistence;
 
 import com.example.backend.knowledge.category.domain.model.KnowledgeCategory;
 import com.example.backend.knowledge.category.domain.repository.KnowledgeCategoryRepository;
+import com.example.backend.knowledge.shared.domain.model.PageRequest;
+import com.example.backend.knowledge.shared.domain.model.PagedResult;
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Repository;
@@ -23,6 +27,16 @@ public class MyBatisKnowledgeCategoryRepository implements KnowledgeCategoryRepo
     @Override
     public Optional<KnowledgeCategory> findByName(String name) {
         return Optional.ofNullable(mapper.findByName(name)).map(KnowledgeCategoryRow::toDomain);
+    }
+
+    @Override
+    /** 在 MyBatis 查询阶段执行 SQL 分页，避免先加载全量数据。 */
+    public PagedResult<KnowledgeCategory> findPage(PageRequest request) {
+        PageInfo<KnowledgeCategoryRow> page = PageHelper.startPage(request.pageNum(), request.pageSize())
+                .doSelectPageInfo(mapper::findAll);
+        return new PagedResult<>(page.getPageNum(), page.getPageSize(), page.getTotal(),
+                page.getPages(), page.isHasNextPage(),
+                page.getList().stream().map(KnowledgeCategoryRow::toDomain).toList());
     }
 
     @Override

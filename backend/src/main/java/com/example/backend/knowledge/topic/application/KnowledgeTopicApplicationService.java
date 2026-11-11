@@ -3,6 +3,8 @@ package com.example.backend.knowledge.topic.application;
 import com.example.backend.knowledge.category.domain.repository.KnowledgeCategoryRepository;
 import com.example.backend.knowledge.topic.domain.model.KnowledgeTopic;
 import com.example.backend.knowledge.topic.domain.repository.KnowledgeTopicRepository;
+import com.example.backend.knowledge.shared.domain.model.PageRequest;
+import com.example.backend.knowledge.shared.domain.model.PagedResult;
 import java.util.List;
 import java.util.NoSuchElementException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -45,10 +47,15 @@ public class KnowledgeTopicApplicationService {
 
     /** 查询题目：提供分类 ID 时按分类筛选，否则返回全部题目。 */
     @Transactional(readOnly = true)
+    public PagedResult<KnowledgeTopic> list(Long categoryId, PageRequest request) {
+        if (categoryId != null) ensureCategoryExists(categoryId);
+        return repository.findPage(categoryId, request);
+    }
+
+    /** 保留网站 REST 接口原有列表查询行为，MCP 工具只使用分页方法。 */
+    @Transactional(readOnly = true)
     public List<KnowledgeTopic> list(Long categoryId) {
-        if (categoryId == null) return repository.findAll();
-        ensureCategoryExists(categoryId);
-        return repository.findByCategoryId(categoryId);
+        if (categoryId == null) return repository.findAll(); ensureCategoryExists(categoryId); return repository.findByCategoryId(categoryId);
     }
 
     /** 更新题目；未提供的字段保留原值，描述传空字符串可清除。 */

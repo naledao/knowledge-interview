@@ -1,39 +1,43 @@
 <script setup lang='ts'>
+import axios from 'axios'
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { getCategories, getTopics, type KnowledgeCategory, type KnowledgeTopic } from '../api/knowledge'
+import { getCategory, getTopics, type KnowledgeCategory, type KnowledgeTopic } from '../api/knowledge'
 import MarkdownContent from '../components/MarkdownContent.vue'
+import ListPagination from '../components/ListPagination.vue'
 import { markdownToPlainText } from '../utils/plainText'
 
-/** 分类详情页：展示分类基本信息和所属主题，复用现有只读 API。 */
+/** 分类详情页通过 ID 查询分类信息，并按页加载所属主题。 */
 const route = useRoute()
 const category = ref<KnowledgeCategory | null>(null)
 const topics = ref<KnowledgeTopic[]>([])
+const topicPage = ref(1)
+const topicPages = ref(0)
+const topicTotal = ref(0)
 const loading = ref(true)
 const errorMessage = ref('')
 const notFound = ref(false)
 let requestVersion = 0
 
-/** 按业务排序字段排列主题，排序相同时按 ID 保持稳定顺序。 */
 const sortedTopics = computed(() =>
   [...topics.value].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id),
 )
 
-/** 拒绝非法或超出 JavaScript 安全整数范围的路由 ID。 */
 function parseCategoryId(value: unknown): number | null {
   if (typeof value !== 'string' || !/^[1-9][0-9]*$/.test(value)) return null
   const id = Number(value)
   return Number.isSafeInteger(id) ? id : null
 }
 
-async function loadCategory() {
+/** 路由变更重置页码；翻页时只加载目标页，旧请求结果不覆盖新页面。 */
+async function loadCategory(resetPage = false) {
   const version = ++requestVersion
+  if (resetPage) topicPage.value = 1
   category.value = null
   topics.value = []
   loading.value = true
   errorMessage.value = ''
   notFound.value = false
-
   const categoryId = parseCategoryId(route.params.id)
   if (categoryId === null) {
     notFound.value = true
@@ -42,32 +46,33 @@ async function loadCategory() {
   }
 
   try {
-    // 当前后端仅提供分类列表和按分类查询主题，因此在客户端匹配分类 ID。
-    const [categoryList, topicList] = await Promise.all([
-      getCategories(),
-      getTopics(categoryId),
+    const [currentCategory, result] = await Promise.all([
+      getCategory(categoryId), getTopics(categoryId, topicPage.value),
     ])
-    // 快速切换路由时忽略旧请求，避免显示其他分类的数据。
     if (version !== requestVersion) return
-
-    const selected = categoryList.find((item) => item.id === categoryId)
-    if (!selected) {
-      notFound.value = true
-      return
-    }
-    category.value = selected
-    topics.value = topicList.filter((item) => item.categoryId === categoryId)
+    category.value = currentCategory
+    topics.value = result.items
+    topicPages.value = result.pages
+    topicTotal.value = result.total
   } catch (error) {
     if (version !== requestVersion) return
-    errorMessage.value = '分类数据加载失败，请检查网络连接后重试。'
-    console.error('分类详情加载失败', error)
+    if (axios.isAxiosError(error) && error.response?.status === 404) notFound.value = true
+    else {
+      errorMessage.value = '分类数据加载失败，请检查网络连接后重试。'
+      console.error('分类详情加载失败', error)
+    }
   } finally {
     if (version === requestVersion) loading.value = false
   }
 }
 
-// 监听路由参数变化，支持直接访问详情 URL 和同组件内切换分类。
-watch(() => route.params.id, () => { void loadCategory() }, { immediate: true })
+function changeTopicPage(page: number) {
+  if (loading.value || page < 1 || page > topicPages.value || page === topicPage.value) return
+  topicPage.value = page
+  void loadCategory()
+}
+
+watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: true })
 </script>
 
 <template>
@@ -88,7 +93,7 @@ watch(() => route.params.id, () => { void loadCategory() }, { immediate: true })
       <div class='state-symbol' aria-hidden='true'>!</div>
       <h1>加载失败</h1>
       <p>{{ errorMessage }}</p>
-      <button type='button' class='primary-action' @click='loadCategory'>重新加载</button>
+      <button type='button' class='primary-action' @click='loadCategory()'>重新加载</button>
     </section>
 
     <section v-else-if='notFound' class='state-panel'>
@@ -105,7 +110,7 @@ watch(() => route.params.id, () => { void loadCategory() }, { immediate: true })
           <h1>{{ category.name }}</h1>
           <MarkdownContent class='category-description' size='compact' :source="category.description || '浏览该分类下的知识主题，循序渐进地展开学习。'" />
           <div class='hero-summary'>
-            <strong>{{ sortedTopics.length }}</strong>
+            <strong>{{ topicTotal }}</strong>
             <span>个学习主题</span>
           </div>
         </div>
@@ -122,10 +127,10 @@ watch(() => route.params.id, () => { void loadCategory() }, { immediate: true })
             <h2 id='topics-heading'>学习主题</h2>
             <p class='section-description'>选择一个主题，进一步探索相关知识与问题。</p>
           </div>
-          <span class='topic-count'>共 {{ sortedTopics.length }} 项</span>
+          <span class='topic-count'>共 {{ topicTotal }} 项</span>
         </div>
 
-        <div v-if='sortedTopics.length' class='topic-grid'>
+        <div v-if='topicTotal' class='topic-grid'>
           <RouterLink
             v-for='(topic, index) in sortedTopics'
             :key='topic.id'
@@ -133,7 +138,7 @@ watch(() => route.params.id, () => { void loadCategory() }, { immediate: true })
             class='topic-card'
           >
             <div class='topic-card-top'>
-              <span class='topic-index'>{{ String(index + 1).padStart(2, '0') }}</span>
+              <span class='topic-index'>{{ String((topicPage - 1) * 6 + index + 1).padStart(2, '0') }}</span>
               <span class='card-arrow' aria-hidden='true'>↗</span>
             </div>
             <h3>{{ topic.title }}</h3>
@@ -151,6 +156,7 @@ watch(() => route.params.id, () => { void loadCategory() }, { immediate: true })
           <p>当前分类还没有添加主题，可以先浏览其他知识分类。</p>
           <RouterLink to='/' class='home-link'>浏览其他分类 →</RouterLink>
         </div>
+        <ListPagination :page-num='topicPage' :pages='topicPages' :loading='loading' @change='changeTopicPage' />
       </section>
     </template>
   </div>

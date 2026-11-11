@@ -2,6 +2,8 @@ package com.example.backend.knowledge.category.interfaces.mcp;
 
 import com.example.backend.knowledge.category.application.KnowledgeCategoryApplicationService;
 import com.example.backend.knowledge.category.domain.model.KnowledgeCategory;
+import com.example.backend.knowledge.shared.domain.model.PageRequest;
+import com.example.backend.knowledge.shared.domain.model.PagedResult;
 import java.util.List;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
@@ -31,10 +33,12 @@ public class KnowledgeCategoryTools {
         return service.get(id);
     }
 
-    @McpTool(name = "list_knowledge_categories", description = "列出全部知识分类；知识整理前必须先查询，优先复用已有领域，避免重复创建分类")
+    @McpTool(name = "list_knowledge_categories", description = "分页查询知识数据，默认第一页6条、每页最多6条；根据total、pages、hasNext按需查询后续页面，不得一次性读取全部数据；创建前优先检查已有内容")
     // MCP 工具：列出全部分类。
-    public List<KnowledgeCategory> list() {
-        return service.list();
+    public PagedResult<KnowledgeCategory> list(
+            @McpToolParam(description = "页码，从1开始，默认1", required = false) Integer pageNum,
+            @McpToolParam(description = "每页条数，默认6，最大6", required = false) Integer pageSize) {
+        return service.list(PageRequest.of(pageNum, pageSize));
     }
 
     @McpTool(name = "update_knowledge_category", description = "更新分类名称、描述和排序；描述为空值时保留原描述，传空字符串可清除描述")

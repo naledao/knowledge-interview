@@ -58,15 +58,33 @@ client.interceptors.response.use(
   },
 )
 
-export async function getCategories(): Promise<KnowledgeCategory[]> {
-  const { data } = await client.get<KnowledgeCategory[]>('/categories')
+/** 列表接口统一返回数据库分页结果，每页最多6条。 */
+export interface PageResult<T> {
+  pageNum: number
+  pageSize: number
+  total: number
+  pages: number
+  hasNext: boolean
+  items: T[]
+}
+
+export async function getCategories(pageNum = 1): Promise<PageResult<KnowledgeCategory>> {
+  const { data } = await client.get<PageResult<KnowledgeCategory>>('/categories', { params: { pageNum, pageSize: 6 } })
   return data
 }
 
-export async function getTopics(categoryId?: number): Promise<KnowledgeTopic[]> {
-  const { data } = await client.get<KnowledgeTopic[]>('/topics', {
-    params: categoryId === undefined ? undefined : { categoryId },
-  })
+export async function getCategory(id: number): Promise<KnowledgeCategory> {
+  const { data } = await client.get<KnowledgeCategory>(`/categories/${id}`)
+  return data
+}
+
+export async function getTopics(categoryId?: number, pageNum = 1): Promise<PageResult<KnowledgeTopic>> {
+  const { data } = await client.get<PageResult<KnowledgeTopic>>('/topics', { params: { categoryId, pageNum, pageSize: 6 } })
+  return data
+}
+
+export async function getTopic(id: number): Promise<KnowledgeTopic> {
+  const { data } = await client.get<KnowledgeTopic>(`/topics/${id}`)
   return data
 }
 export type SearchKind = 'category' | 'topic' | 'question'
@@ -117,10 +135,30 @@ export function errorDetail(error: unknown): string | undefined {
   return typeof detail === 'string' ? detail : undefined
 }
 
-/** 按主题获取问题列表；未传主题 ID 时返回全部问题。 */
-export async function getQuestions(topicId?: number): Promise<KnowledgeQuestion[]> {
-  const { data } = await client.get<KnowledgeQuestion[]>('/questions', {
-    params: topicId === undefined ? undefined : { topicId },
+/** 按主题分页获取问题列表，避免一次性传输所有参考答案。 */
+export async function getQuestions(topicId?: number, pageNum = 1): Promise<PageResult<KnowledgeQuestion>> {
+  const { data } = await client.get<PageResult<KnowledgeQuestion>>('/questions', {
+    params: { topicId, pageNum, pageSize: 6 },
   })
+  return data
+}
+
+export async function getQuestion(id: number): Promise<KnowledgeQuestion> {
+  const { data } = await client.get<KnowledgeQuestion>(`/questions/${id}`)
+  return data
+}
+/** 相邻题仅返回 ID 和标题，不加载完整答案。 */
+export interface QuestionLink {
+  id: number
+  questionText: string
+}
+
+export interface QuestionNeighbors {
+  previous: QuestionLink | null
+  next: QuestionLink | null
+}
+
+export async function getQuestionNeighbors(id: number): Promise<QuestionNeighbors> {
+  const { data } = await client.get<QuestionNeighbors>(`/questions/${id}/neighbors`)
   return data
 }

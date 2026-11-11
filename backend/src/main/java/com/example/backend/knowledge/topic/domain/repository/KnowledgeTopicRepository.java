@@ -1,6 +1,8 @@
 package com.example.backend.knowledge.topic.domain.repository;
 
 import com.example.backend.knowledge.topic.domain.model.KnowledgeTopic;
+import com.example.backend.knowledge.shared.domain.model.PageRequest;
+import com.example.backend.knowledge.shared.domain.model.PagedResult;
 import java.util.List;
 import java.util.Optional;
 
@@ -11,6 +13,8 @@ public interface KnowledgeTopicRepository {
     /** 在指定分类内根据标题查询题目，用于唯一性检查。 */
     Optional<KnowledgeTopic> findByCategoryIdAndTitle(long categoryId, String title);
     /** 查询全部题目。 */
+    /** 数据库分页查询，返回当前页及总数。 */
+    PagedResult<KnowledgeTopic> findPage(Long categoryId, PageRequest request);
     List<KnowledgeTopic> findAll();
     /** 查询指定分类下的题目。 */
     List<KnowledgeTopic> findByCategoryId(long categoryId);

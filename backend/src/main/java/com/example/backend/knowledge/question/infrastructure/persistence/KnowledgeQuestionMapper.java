@@ -29,6 +29,15 @@ public interface KnowledgeQuestionMapper {
     @ResultMap("questionResult")
     List<KnowledgeQuestionRow> findByTopicId(@Param("topicId") long topicId);
 
+    /** 查询同一主题的上一题，仅返回导航字段，避免读取完整 HTML 答案。 */
+    @Select("SELECT id, topic_id, question_text, NULL AS answer_text, sort_order, created_at, updated_at FROM knowledge_question WHERE topic_id = #{topicId} AND (sort_order < #{sortOrder} OR (sort_order = #{sortOrder} AND id < #{id})) ORDER BY sort_order DESC, id DESC LIMIT 1")
+    @ResultMap("questionResult")
+    KnowledgeQuestionRow findPrevious(@Param("topicId") long topicId, @Param("sortOrder") int sortOrder, @Param("id") long id);
+
+    /** 查询同一主题的下一题，避免加载整个问题列表。 */
+    @Select("SELECT id, topic_id, question_text, NULL AS answer_text, sort_order, created_at, updated_at FROM knowledge_question WHERE topic_id = #{topicId} AND (sort_order > #{sortOrder} OR (sort_order = #{sortOrder} AND id > #{id})) ORDER BY sort_order ASC, id ASC LIMIT 1")
+    @ResultMap("questionResult")
+    KnowledgeQuestionRow findNext(@Param("topicId") long topicId, @Param("sortOrder") int sortOrder, @Param("id") long id);
     /** 插入问题，并回填数据库自增主键。 */
     @Insert("INSERT INTO knowledge_question (topic_id, question_text, answer_text, sort_order) VALUES (#{topicId}, #{questionText}, #{answerText}, #{sortOrder})")
     @Options(useGeneratedKeys = true, keyProperty = "id")

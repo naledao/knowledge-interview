@@ -1,23 +1,24 @@
 <script setup lang="ts">
+import axios from 'axios'
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import {
-  getCategories, getTopics, getQuestions,
-  type KnowledgeCategory, type KnowledgeTopic, type KnowledgeQuestion,
-} from '../api/knowledge'
+import { getCategory, getTopic, getQuestions, type KnowledgeCategory, type KnowledgeTopic, type KnowledgeQuestion } from '../api/knowledge'
 import MarkdownContent from '../components/MarkdownContent.vue'
+import ListPagination from '../components/ListPagination.vue'
 
-/** 主题详情页：展示所属分类、主题介绍及该主题的问题列表。 */
+/** 主题详情按 ID 查询，问题列表通过数据库分页获取。 */
 const route = useRoute()
 const topic = ref<KnowledgeTopic | null>(null)
 const category = ref<KnowledgeCategory | null>(null)
 const questions = ref<KnowledgeQuestion[]>([])
+const questionPage = ref(1)
+const questionPages = ref(0)
+const questionTotal = ref(0)
 const loading = ref(true)
 const errorMessage = ref('')
 const notFound = ref(false)
 let requestVersion = 0
 
-/** 问题按业务排序值排列；排序值相同时按 ID 排序。 */
 const sortedQuestions = computed(() =>
   [...questions.value].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id),
 )
@@ -28,51 +29,53 @@ function parseTopicId(value: unknown): number | null {
   return Number.isSafeInteger(id) ? id : null
 }
 
-async function loadTopic() {
+/** 只加载当前问题页，并忽略切换路由或翻页后过期的请求。 */
+async function loadTopic(resetPage = false) {
   const version = ++requestVersion
+  if (resetPage) questionPage.value = 1
   topic.value = null
   category.value = null
   questions.value = []
   loading.value = true
   errorMessage.value = ''
   notFound.value = false
-
   const topicId = parseTopicId(route.params.id)
   if (topicId === null) {
     notFound.value = true
     loading.value = false
     return
   }
-
   try {
-    // 当前后端的主题接口提供列表查询，在前端根据路由 ID 查找主题。
-    const [topicList, categoryList] = await Promise.all([getTopics(), getCategories()])
+    const current = await getTopic(topicId)
     if (version !== requestVersion) return
-
-    const current = topicList.find((item) => item.id === topicId)
-    if (!current) {
-      notFound.value = true
-      return
-    }
-
-    // 找到主题后再读取该主题的问题，避免对不存在的主题发出无效请求。
-    const questionList = await getQuestions(topicId)
+    const [currentCategory, result] = await Promise.all([
+      getCategory(current.categoryId), getQuestions(topicId, questionPage.value),
+    ])
     if (version !== requestVersion) return
-
     topic.value = current
-    category.value = categoryList.find((item) => item.id === current.categoryId) ?? null
-    questions.value = questionList.filter((item) => item.topicId === topicId)
+    category.value = currentCategory
+    questions.value = result.items
+    questionPages.value = result.pages
+    questionTotal.value = result.total
   } catch (error) {
     if (version !== requestVersion) return
-    errorMessage.value = '主题数据加载失败，请检查网络连接后重试。'
-    console.error('主题详情加载失败', error)
+    if (axios.isAxiosError(error) && error.response?.status === 404) notFound.value = true
+    else {
+      errorMessage.value = '主题数据加载失败，请检查网络连接后重试。'
+      console.error('主题详情加载失败', error)
+    }
   } finally {
     if (version === requestVersion) loading.value = false
   }
 }
 
-// 同一个组件内切换主题 ID 时重新拉取数据，并忽略过期请求结果。
-watch(() => route.params.id, () => { void loadTopic() }, { immediate: true })
+function changeQuestionPage(page: number) {
+  if (loading.value || page < 1 || page > questionPages.value || page === questionPage.value) return
+  questionPage.value = page
+  void loadTopic()
+}
+
+watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true })
 </script>
 
 <template>
@@ -96,7 +99,7 @@ watch(() => route.params.id, () => { void loadTopic() }, { immediate: true })
       <div class="state-symbol" aria-hidden="true">!</div>
       <h1>加载失败</h1>
       <p>{{ errorMessage }}</p>
-      <button class="primary-action" type="button" @click="loadTopic">重新加载</button>
+      <button class="primary-action" type="button" @click="loadTopic()">重新加载</button>
     </section>
 
     <section v-else-if="notFound" class="state-panel">
@@ -113,7 +116,7 @@ watch(() => route.params.id, () => { void loadTopic() }, { immediate: true })
           <h1>{{ topic.title }}</h1>
           <MarkdownContent class="hero-description" size="compact" :source="topic.description || '围绕本主题系统学习相关问题，逐步巩固知识。'" />
           <div class="hero-meta">
-            <span class="meta-pill"><strong>{{ sortedQuestions.length }}</strong> 个相关问题</span>
+            <span class="meta-pill"><strong>{{ questionTotal }}</strong> 个相关问题</span>
             <RouterLink class="category-link" :to="`/categories/${topic.categoryId}`">返回分类 <span aria-hidden="true">↗</span></RouterLink>
           </div>
         </div>
@@ -127,13 +130,13 @@ watch(() => route.params.id, () => { void loadTopic() }, { immediate: true })
             <h2 id="questions-heading">知识问题</h2>
             <p class="section-description">选择问题，查看对应的知识内容与答案。</p>
           </div>
-          <span class="question-count">共 {{ sortedQuestions.length }} 题</span>
+          <span class="question-count">共 {{ questionTotal }} 题</span>
         </div>
 
         <ol v-if="sortedQuestions.length" class="question-list">
           <li v-for="(question, index) in sortedQuestions" :key="question.id">
             <RouterLink class="question-card" :to="`/questions/${question.id}`">
-              <span class="question-number">{{ String(index + 1).padStart(2, '0') }}</span>
+              <span class="question-number">{{ String((questionPage - 1) * 6 + index + 1).padStart(2, '0') }}</span>
               <span class="question-main">
                 <strong>{{ question.questionText }}</strong>
                 <span class="question-hint">查看问题详情</span>
@@ -149,6 +152,7 @@ watch(() => route.params.id, () => { void loadTopic() }, { immediate: true })
           <p>当前主题尚未收录问题，可以返回分类浏览其他主题。</p>
           <RouterLink class="return-link" :to="`/categories/${topic.categoryId}`">浏览其他主题 →</RouterLink>
         </div>
+        <ListPagination :page-num='questionPage' :pages='questionPages' :loading='loading' @change='changeQuestionPage' />
       </section>
     </template>
   </div>

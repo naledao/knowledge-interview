@@ -2,6 +2,8 @@ package com.example.backend.knowledge.question.interfaces.mcp;
 
 import com.example.backend.knowledge.question.application.KnowledgeQuestionApplicationService;
 import com.example.backend.knowledge.question.domain.model.KnowledgeQuestion;
+import com.example.backend.knowledge.shared.domain.model.PageRequest;
+import com.example.backend.knowledge.shared.domain.model.PagedResult;
 import java.util.List;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
@@ -34,10 +36,12 @@ public class KnowledgeQuestionTools {
     }
 
     /** 列出全部问题，或按所属题目筛选。 */
-    @McpTool(name = "list_knowledge_questions", description = "列出全部问题或按topicId查询指定主题下的问题；创建前用于检查重复问题，优先复用现有内容")
-    public List<KnowledgeQuestion> list(
-            @McpToolParam(description = "可选的题目ID，不提供则返回全部问题", required = false) Long topicId) {
-        return service.list(topicId);
+    @McpTool(name = "list_knowledge_questions", description = "分页查询，默认第一页6条、每页最多6条；返回total、pages和hasNext，按需查询后续页，避免一次读取全部数据；创建前检查已有内容")
+    public PagedResult<KnowledgeQuestion> list(
+            @McpToolParam(description = "可选的主题ID，不提供则查询全部", required = false) Long topicId,
+            @McpToolParam(description = "页码，从1开始，默认1", required = false) Integer pageNum,
+            @McpToolParam(description = "每页条数，默认6，最大6", required = false) Integer pageSize) {
+        return service.list(topicId, PageRequest.of(pageNum, pageSize));
     }
 
     /** 修改问题内容、所属题目、答案和排序值。 */
