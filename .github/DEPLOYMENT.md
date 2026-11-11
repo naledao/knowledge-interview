@@ -7,7 +7,7 @@
 1. Maven 先打包 Spring Boot 后端（跳过原有 Windows 专用 npm.cmd 构建步骤）。
 2. 执行 `npm ci` 和 `npm run build` 构建 Vue 前端。
 3. 再次打包后端，将 `frontend/dist` 嵌入 JAR，由 Spring Boot 统一托管。
-4. SSH 上传 JAR，停止旧进程，使用 `nohup` 启动新进程，健康检查失败时尝试恢复上一版本。
+4. 通过 SSH + rsync 断点续传上传 JAR（失败最多重试 5 次，并通过 SHA-256 校验），停止旧进程，使用 `nohup` 启动新进程，健康检查失败时尝试恢复上一版本。
 
 ## GitHub Actions Secrets
 
@@ -25,7 +25,7 @@
 
 ## 服务器准备
 
-需要 Java 17+、nohup、curl、SSH 服务以及应用所需的数据库等依赖，**不需要 systemd**。
+需要 Java 17+、nohup、curl、rsync、SSH 服务以及应用所需的数据库等依赖，**不需要 systemd**。
 
 提前创建 `/root/service/knowledge-interview/.env`，配置 Spring Boot 所需的 `MYSQL_PASSWORD`、`MCP_API_KEY` 等环境变量，权限建议设置为 `600`。该文件不会通过 GitHub Actions 覆盖。
 
