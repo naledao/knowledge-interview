@@ -3,6 +3,11 @@ name: Build and deploy
 on:
   push:
     branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/scripts/deploy-remote.sh'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
