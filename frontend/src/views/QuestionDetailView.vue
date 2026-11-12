@@ -1,7 +1,7 @@
 <script setup lang='ts'>
 import axios from 'axios'
 import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useCachedRoute } from '../router/useCachedRoute'
 import {
   getCategory, getTopic, getQuestion, getQuestionNeighbors,
   type KnowledgeCategory, type KnowledgeTopic, type KnowledgeQuestion, type QuestionNeighbors,
@@ -11,7 +11,7 @@ import HtmlAnswerRenderer from '../components/HtmlAnswerRenderer.vue'
 import { isHtmlAnswer } from '../utils/answerFormat'
 
 /** 问题详情通过主键获取完整答案，前后题由轻量查询提供，避免加载全部问题。 */
-const route = useRoute()
+const route = useCachedRoute()
 const question = ref<KnowledgeQuestion | null>(null)
 const topic = ref<KnowledgeTopic | null>(null)
 const category = ref<KnowledgeCategory | null>(null)

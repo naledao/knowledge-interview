@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
+import { useCachedRoute } from '../router/useCachedRoute'
 import axios from 'axios'
 import { saveApiKey, verifyApiKey } from '../api/auth'
 
-const route = useRoute()
+const route = useCachedRoute()
 const router = useRouter()
 const apiKey = ref('')
 const showKey = ref(false)

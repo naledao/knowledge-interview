@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useRoute, useRouter, type LocationQueryRaw } from 'vue-router'
+import { useRouter, type LocationQueryRaw } from 'vue-router'
+import { useCachedRoute } from '../router/useCachedRoute'
 import {
   errorDetail, searchKnowledge,
   type SearchHit, type SearchKind, type SearchResponse, type SearchType,
@@ -19,7 +20,7 @@ const kindActions: Record<SearchKind, string> = { category: '探索分类主题'
 const kindPaths: Record<SearchKind, string> = { category: '/categories', topic: '/topics', question: '/questions' }
 const suggestions = ['Vue', 'JavaScript', 'MySQL', 'Redis', '算法']
 
-const route = useRoute()
+const route = useCachedRoute()
 const router = useRouter()
 
 function queryString(value: unknown): string {

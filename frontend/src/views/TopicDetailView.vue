@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import axios from 'axios'
 import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useCachedRoute } from '../router/useCachedRoute'
 import { getCategory, getTopic, getQuestions, type KnowledgeCategory, type KnowledgeTopic, type KnowledgeQuestion } from '../api/knowledge'
 import MarkdownContent from '../components/MarkdownContent.vue'
 import ListPagination from '../components/ListPagination.vue'
 
 /** 主题详情按 ID 查询，问题列表通过数据库分页获取。 */
-const route = useRoute()
+const route = useCachedRoute()
 const topic = ref<KnowledgeTopic | null>(null)
 const category = ref<KnowledgeCategory | null>(null)
 const questions = ref<KnowledgeQuestion[]>([])

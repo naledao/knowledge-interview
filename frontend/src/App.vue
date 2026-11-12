@@ -115,7 +115,12 @@ onUnmounted(() => {
     </header>
     <button v-if="menuOpen" type="button" class="mobile-nav-backdrop" tabindex="-1" aria-label="关闭导航菜单" @click="closeMenu"></button>
     <main id="main-content" class="site-main" tabindex="-1">
-      <RouterView />
+      <RouterView v-if="isNativeAndroid" v-slot="{ Component, route }">
+        <KeepAlive>
+          <component :is="Component" :key="route.fullPath" />
+        </KeepAlive>
+      </RouterView>
+      <RouterView v-else />
     </main>
   </div>
 </template>

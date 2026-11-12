@@ -114,3 +114,33 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create '${{ steps.version.outputs.tag }}' '${{ steps.sign.outputs.apk }}#KnowledgeInterview-v${{ steps.version.outputs.name }}.apk' --target "$GITHUB_SHA" --title 'Android v${{ steps.version.outputs.name }}' --generate-notes --latest
+      - name: 仅保留最新三个 Android Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # 按版本号排序，而非发布时间排序；仅清理正式的 Android Release。
+          # 只删除 Release，不删除 Git tag：下次构建还需依据历史标签递增版本号。
+          stale_tags="$({
+            gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100" |
+              jq -r '
+                [ .[][]
+                  | select(.draft == false and .prerelease == false)
+                  | .tag_name
+                  | select(test("^android-v1[.]0[.][0-9]+$"))
+                ]
+                | sort_by(split(".")[-1] | tonumber)
+                | reverse
+                | .[3:][]
+              '
+          })"
+          if [[ -z "$stale_tags" ]]; then
+            echo 'Android Release 数量不超过三个，无需清理。'
+          else
+            while IFS= read -r tag; do
+              [[ -z "$tag" ]] && continue
+              echo "删除旧 Android Release：$tag（保留对应 Git tag）"
+              gh release delete "$tag" --yes
+            done <<< "$stale_tags"
+          fi
