@@ -45,11 +45,14 @@ public class MainActivity extends Activity {
     private static final String SETTINGS_FILE = "backend_settings";
     private static final String BACKEND_ADDRESS_KEY = "backend_address";
     private WebView webView;
+    private AppUpdater appUpdater;
+    private boolean initialUpdateChecked;
 
     @Override
     @SuppressLint("SetJavaScriptEnabled")
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        appUpdater = new AppUpdater(this);
         webView = new WebView(this);
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -76,11 +79,27 @@ public class MainActivity extends Activity {
                 if (request.isForMainFrame() && origin != null
                         && "https".equalsIgnoreCase(origin.getScheme()) && HOST.equalsIgnoreCase(origin.getHost())
                         && "knowledgeinterview".equalsIgnoreCase(uri.getScheme())
-                        && "settings".equalsIgnoreCase(uri.getHost()) && "/backend".equals(uri.getPath())) {
-                    showBackendAddressDialog();
-                    return true;
+                        && "settings".equalsIgnoreCase(uri.getHost())) {
+                    if ("/backend".equals(uri.getPath())) {
+                        showBackendAddressDialog();
+                        return true;
+                    }
+                    if ("/update".equals(uri.getPath())) {
+                        appUpdater.check(webView, true);
+                        return true;
+                    }
                 }
                 return !("https".equalsIgnoreCase(uri.getScheme()) && HOST.equalsIgnoreCase(uri.getHost()));
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                // 首次进入内置页面后读取已保存 API Key，静默检查新版本。
+                if (!initialUpdateChecked && url != null && url.startsWith("https://" + HOST + "/")) {
+                    initialUpdateChecked = true;
+                    appUpdater.check(view, false);
+                }
             }
         });
         // 网页导航已经包含服务器设置入口，不再额外占用一整行原生工具栏。
@@ -348,7 +367,18 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        // 用户在系统设置里允许安装后，恢复待安装的更新。
+        if (appUpdater != null && (android.os.Build.VERSION.SDK_INT < 26
+                || getPackageManager().canRequestPackageInstalls())) {
+            appUpdater.installPending();
+        }
+    }
+
+    @Override
     protected void onDestroy() {
+        if (appUpdater != null) appUpdater.shutdown();
         if (webView != null) { webView.destroy(); webView = null; }
         super.onDestroy();
     }

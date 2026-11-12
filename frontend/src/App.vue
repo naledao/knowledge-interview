@@ -80,6 +80,9 @@ onUnmounted(() => {
         </form>
 
         <div class="header-actions">
+          <a v-if="isNativeAndroid" href="knowledgeinterview://settings/update" class="native-server-link" aria-label="检查更新" title="检查更新" @click="closeMenu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.4 5.7"/><path d="M20 4v7h-7"/></svg>
+          </a>
           <a v-if="isNativeAndroid" href="knowledgeinterview://settings/backend" class="native-server-link" aria-label="服务器设置" title="服务器设置" @click="closeMenu">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="7" rx="2"/><rect x="4" y="13" width="16" height="7" rx="2"/><path d="M8 7.5h.01M8 16.5h.01M12 7.5h5M12 16.5h5"/></svg>
           </a>
@@ -99,6 +102,7 @@ onUnmounted(() => {
           <RouterLink to="/search" :class="{ 'is-active': activeSection === 'explore' }" @click="closeMenu">探索题库<span aria-hidden="true">→</span></RouterLink>
           <RouterLink to="/api-key" :class="{ 'is-active': activeSection === 'settings' }" @click="closeMenu">密钥设置<span aria-hidden="true">→</span></RouterLink>
           <a v-if="isNativeAndroid" href="knowledgeinterview://settings/backend" @click="closeMenu">服务器设置<span aria-hidden="true">→</span></a>
+          <a v-if="isNativeAndroid" href="knowledgeinterview://settings/update" @click="closeMenu">检查更新<span aria-hidden="true">→</span></a>
           <form class="mobile-search" role="search" @submit.prevent="submitSearch">
             <label for="mobile-search-input">快速搜索知识点</label>
             <div class="mobile-search-row">

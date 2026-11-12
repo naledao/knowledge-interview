@@ -51,3 +51,8 @@ spring:
 mcp:
   auth:
     api-key: ${MCP_API_KEY}
+
+# 私有 GitHub Release 只允许后端持有只读访问令牌。
+app:
+  update:
+    github-token: ${GITHUB_RELEASE_TOKEN:}
