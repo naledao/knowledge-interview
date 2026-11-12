@@ -18,7 +18,7 @@ concurrency:
 jobs:
   release:
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: 检出完整仓库与历史标签
@@ -57,12 +57,9 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: 安装 Android 34 SDK
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "${ANDROID_HOME:-}"
-          command -v sdkmanager
-          sdkmanager 'platforms;android-34' 'build-tools;34.0.0'
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-34 build-tools;34.0.0'
 
       - name: 配置 Gradle 缓存
         uses: gradle/actions/setup-gradle@v4
