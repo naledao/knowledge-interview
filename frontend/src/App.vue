@@ -7,6 +7,8 @@ const route = useRoute()
 const router = useRouter()
 const menuOpen = ref(false)
 const searchKeyword = ref('')
+/** 仅内置安卓 WebView 展示服务器配置入口。 */
+const isNativeAndroid = navigator.userAgent.includes('KnowledgeInterviewAndroid/')
 
 /** 分类、主题及问题详情统一归属于知识探索导航。 */
 const activeSection = computed(() => {
@@ -78,6 +80,9 @@ onUnmounted(() => {
         </form>
 
         <div class="header-actions">
+          <a v-if="isNativeAndroid" href="knowledgeinterview://settings/backend" class="native-server-link" aria-label="服务器设置" title="服务器设置" @click="closeMenu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="7" rx="2"/><rect x="4" y="13" width="16" height="7" rx="2"/><path d="M8 7.5h.01M8 16.5h.01M12 7.5h5M12 16.5h5"/></svg>
+          </a>
           <RouterLink to="/api-key" class="settings-link" :class="{ 'is-active': activeSection === 'settings' }" @click="closeMenu">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9 2 2-2 2 1 2-3 3-2-1-2 2"/></svg>
             <span>密钥设置</span>
@@ -93,6 +98,7 @@ onUnmounted(() => {
           <RouterLink to="/" :class="{ 'is-active': activeSection === 'home' }" @click="closeMenu">首页<span aria-hidden="true">→</span></RouterLink>
           <RouterLink to="/search" :class="{ 'is-active': activeSection === 'explore' }" @click="closeMenu">探索题库<span aria-hidden="true">→</span></RouterLink>
           <RouterLink to="/api-key" :class="{ 'is-active': activeSection === 'settings' }" @click="closeMenu">密钥设置<span aria-hidden="true">→</span></RouterLink>
+          <a v-if="isNativeAndroid" href="knowledgeinterview://settings/backend" @click="closeMenu">服务器设置<span aria-hidden="true">→</span></a>
           <form class="mobile-search" role="search" @submit.prevent="submitSearch">
             <label for="mobile-search-input">快速搜索知识点</label>
             <div class="mobile-search-row">

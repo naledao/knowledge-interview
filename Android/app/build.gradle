@@ -10,8 +10,8 @@ android {
         applicationId 'com.knowledgeinterview.android'
         minSdk 24
         targetSdk 34
-        versionCode 1
-        versionName '1.0.0'
+        versionCode = (project.findProperty('androidVersionCode') ?: '1').toString().toInteger()
+        versionName = (project.findProperty('androidVersionName') ?: '1.0.0').toString()
     }
 
     compileOptions {

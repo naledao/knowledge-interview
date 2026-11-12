@@ -39,6 +39,9 @@ button, input { font: inherit; }
 .settings-link { display: inline-flex; align-items: center; gap: 7px; padding: 10px 12px; border-radius: 10px; color: #475569; font-size: 13px; font-weight: 600; white-space: nowrap; }
 .settings-link:hover, .settings-link.is-active { background: #eff6ff; color: #2563eb; text-decoration: none; }
 .settings-link svg { width: 17px; height: 17px; }
+.native-server-link { display: grid; width: 40px; height: 40px; flex-shrink: 0; place-items: center; border: 1px solid #e2e8f0; border-radius: 11px; background: #f8fafc; color: #475569; }
+.native-server-link:hover { border-color: #bfdbfe; background: #eff6ff; color: #2563eb; }
+.native-server-link svg { width: 19px; height: 19px; }
 .mobile-menu-toggle, .mobile-nav, .mobile-nav-backdrop { display: none; }
 .site-main { width: min(100% - 40px, 1100px); margin: 36px auto; }
 .page-placeholder { padding: 36px; border: 1px solid #e2e8f0; border-radius: 14px; background: white; }
@@ -58,7 +61,7 @@ button, input { font: inherit; }
   .header-inner { height: 62px; width: calc(100% - 32px); gap: 10px; }
   .brand { gap: 9px; font-size: 19px; }
   .brand-mark { width: 35px; height: 35px; }
-  .desktop-nav, .header-search, .settings-link { display: none; }
+  .desktop-nav, .header-search, .settings-link, .native-server-link { display: none; }
   .header-actions { margin-left: auto; }
   .mobile-menu-toggle { display: grid; width: 41px; height: 41px; place-items: center; padding: 0; border: 1px solid #e2e8f0; border-radius: 11px; background: #f8fafc; color: #334155; cursor: pointer; }
   .mobile-menu-toggle:hover { border-color: #bfdbfe; background: #eff6ff; color: #2563eb; }

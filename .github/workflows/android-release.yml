@@ -1,0 +1,117 @@
+name: Android Release APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Android/**'
+      - '.github/workflows/android-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: 检出完整仓库与历史标签
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 根据上一个 Android Release 标签递增版本
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          last_tag="$(git tag --list 'android-v1.0.*' | grep -E '^android-v1\.0\.[0-9]+$' | sort -V | tail -n 1 || true)"
+          if [[ -z "$last_tag" ]]; then
+            patch=1
+          else
+            patch=$((10#${last_tag##*.} + 1))
+          fi
+          version="1.0.${patch}"
+          code=$((patch + 1))
+          echo "name=$version" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "tag=android-v$version" >> "$GITHUB_OUTPUT"
+
+      - name: 安装 Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 安装 Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安装 Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 安装 Android 34 SDK
+        run: sdkmanager 'platforms;android-34' 'build-tools;34.0.0'
+
+      - name: 配置 Gradle 缓存
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: 构建安卓内置前端
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: 复制前端资源到安卓项目
+        run: |
+          mkdir -p Android/app/src/main/assets/www
+          cp -a frontend/dist/. Android/app/src/main/assets/www/
+          test -f Android/app/src/main/assets/www/index.html
+
+      - name: 构建 Release APK
+        run: |
+          chmod +x Android/gradlew
+          cd Android
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace -PandroidVersionCode=${{ steps.version.outputs.code }} -PandroidVersionName=${{ steps.version.outputs.name }}
+
+      - name: 签名并验证 Release APK
+        id: sign
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          RELEASE_VERSION: ${{ steps.version.outputs.name }}
+        run: |
+          set -euo pipefail
+          for variable in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [[ -z "${!variable}" ]]; then
+              echo "缺少 GitHub Actions Secret: $variable" >&2
+              exit 1
+            fi
+          done
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+          unsigned='Android/app/build/outputs/apk/release/app-release-unsigned.apk'
+          test -f "$unsigned"
+          tools="$ANDROID_HOME/build-tools/34.0.0"
+          "$tools/zipalign" -f -p 4 "$unsigned" "$RUNNER_TEMP/app-aligned.apk"
+          output="$RUNNER_TEMP/KnowledgeInterview-v${RELEASE_VERSION}.apk"
+          "$tools/apksigner" sign --ks "$RUNNER_TEMP/release.keystore" --ks-key-alias "$ANDROID_KEY_ALIAS" --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD --out "$output" "$RUNNER_TEMP/app-aligned.apk"
+          "$tools/apksigner" verify --verbose "$output"
+          echo "apk=$output" >> "$GITHUB_OUTPUT"
+
+      - name: 上传 APK 到 GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create '${{ steps.version.outputs.tag }}' '${{ steps.sign.outputs.apk }}#KnowledgeInterview-v${{ steps.version.outputs.name }}.apk' --target "$GITHUB_SHA" --title 'Android v${{ steps.version.outputs.name }}' --generate-notes --latest
