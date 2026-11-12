@@ -40,48 +40,101 @@ final class AppUpdater {
     private final AtomicBoolean cancelled = new AtomicBoolean();
     private final AtomicBoolean downloading = new AtomicBoolean();
     private volatile File pendingInstall;
+    private UpdateDialogs.Busy activeProgress;
+    private final AtomicBoolean checking = new AtomicBoolean();
+    private boolean manualCheckRequested;
+    private UpdateDialogs.Busy activeCheckProgress;
 
     AppUpdater(Activity activity) {
         this.activity = activity;
     }
 
-    /** 密钥仅从受信任的内置 WebView 顶层页面读取，不在 APK 中保存 GitHub Token。 */
+    /** 手动检查从点击开始显示加载动画；自动检查保持静默。 */
     void check(WebView webView, boolean manual) {
         if (webView == null || webView.getUrl() == null
-                || !webView.getUrl().startsWith("https://appassets.androidplatform.net/")) return;
-        webView.evaluateJavascript("localStorage.getItem('knowledge-interview-api-key')", raw -> {
-            String apiKey = "";
-            try {
-                apiKey = new JSONArray("[" + raw + "]").optString(0, "");
-            } catch (Exception ignored) {
-                // 用户尚未配置 API Key，后台检查静默跳过。
+                || !webView.getUrl().startsWith("https://appassets.androidplatform.net/")) {
+            if (manual) message("页面尚未准备好，请稍后重试");
+            return;
+        }
+        if (downloading.get()) {
+            if (manual) message("正在下载更新，请稍候");
+            return;
+        }
+        // 自动检查尚未结束时，手动点击复用该请求，不重复访问服务器。
+        if (!checking.compareAndSet(false, true)) {
+            if (manual) {
+                manualCheckRequested = true;
+                showChecking();
             }
-            if (apiKey == null || apiKey.isBlank()) {
-                if (manual) message("请先在密钥设置中保存 API Key");
-                return;
-            }
-            final String key = apiKey;
-            final String backend = activity.getSharedPreferences("backend_settings", Activity.MODE_PRIVATE)
-                    .getString("backend_address", "http://frp.kangnasi.xyz:9881");
-            executor.execute(() -> {
+            return;
+        }
+        manualCheckRequested = manual;
+        if (manual) showChecking();
+        try {
+            webView.evaluateJavascript("localStorage.getItem('knowledge-interview-api-key')", raw -> {
+                String apiKey = "";
                 try {
-                    Latest latest = fetchLatest(backend, key);
-                    long installed = installedVersion();
-                    if (latest.code > installed) {
-                        activity.runOnUiThread(() -> {
-                            if (!activity.isDestroyed() && !activity.isFinishing()) askToUpdate(latest, backend, key);
-                        });
-                    } else if (manual) {
-                        message("已经是最新版本（" + installedVersionName() + "）");
-                    }
-                } catch (Exception error) {
-                    Log.w(TAG, "检查更新失败", error);
-                    if (manual) message("检查更新失败，请确认服务器地址、API Key 和网络连接");
+                    apiKey = new JSONArray("[" + raw + "]").optString(0, "");
+                } catch (Exception ignored) {
+                    // 尚未配置 API Key 时正常结束加载，并提示用户。
+                }
+                if (apiKey == null || apiKey.isBlank()) {
+                    finishCheck(null, 0, null, null, "请先在密钥设置中保存 API Key");
+                    return;
+                }
+                final String key = apiKey;
+                final String backend = activity.getSharedPreferences("backend_settings", Activity.MODE_PRIVATE)
+                        .getString("backend_address", "http://frp.kangnasi.xyz:9881");
+                if (activeCheckProgress != null) activeCheckProgress.update("正在查询最新版本…", -1);
+                try {
+                    executor.execute(() -> {
+                        try {
+                            Latest latest = fetchLatest(backend, key);
+                            long installed = installedVersion();
+                            finishCheck(latest, installed, backend, key, null);
+                        } catch (Exception error) {
+                            Log.w(TAG, "检查更新失败", error);
+                            finishCheck(null, 0, null, null, "检查更新失败，请确认服务器地址、API Key 和网络连接");
+                        }
+                    });
+                } catch (RuntimeException error) {
+                    Log.w(TAG, "无法启动更新检查", error);
+                    finishCheck(null, 0, null, null, "无法启动更新检查，请稍后重试");
                 }
             });
-        });
+        } catch (RuntimeException error) {
+            Log.w(TAG, "无法读取更新检查凭据", error);
+            finishCheck(null, 0, null, null, "检查更新失败，请稍后重试");
+        }
     }
 
+    /** 进入检查流程时立即展示持续加载卡片，直到检查完成才关闭。 */
+    private void showChecking() {
+        if (activeCheckProgress != null || activity.isFinishing() || activity.isDestroyed()) return;
+        activeCheckProgress = UpdateDialogs.busy(activity, "正在检查更新", "正在获取最新版本信息", null);
+        activeCheckProgress.update("正在连接更新服务器…", -1);
+    }
+
+    /** 请求成功、失败或缺少密钥时统一收尾，先关闭加载卡片再呈现结果。 */
+    private void finishCheck(Latest latest, long installed, String backend, String key, String errorMessage) {
+        activity.runOnUiThread(() -> {
+            boolean manual = manualCheckRequested;
+            manualCheckRequested = false;
+            checking.set(false);
+            if (activeCheckProgress != null) {
+                activeCheckProgress.dismiss();
+                activeCheckProgress = null;
+            }
+            if (activity.isFinishing() || activity.isDestroyed()) return;
+            if (errorMessage != null) {
+                if (manual) message(errorMessage);
+            } else if (latest != null && latest.code > installed) {
+                askToUpdate(latest, backend, key);
+            } else if (manual) {
+                message("已经是最新版本（" + installedVersionName() + "）");
+            }
+        });
+    }
     private Latest fetchLatest(String backend, String key) throws Exception {
         HttpURLConnection connection = open(backend + UPDATE_PATH + "/latest", key);
         try {
@@ -120,27 +173,21 @@ final class AppUpdater {
         return connection;
     }
 
-    /** 仅提示用户安装，普通安卓应用不能绕过系统安装确认界面。 */
+    /** 使用与应用一致的蓝白圆角卡片提示更新。 */
     private void askToUpdate(Latest latest, String backend, String key) {
         if (downloading.get()) return;
-        new AlertDialog.Builder(activity)
-                .setTitle("发现新版本 v" + latest.name)
-                .setMessage("当前版本：" + installedVersionName() + "\n最新版本：" + latest.name + "\n\n是否下载并安装更新？")
-                .setNegativeButton("稍后", null)
-                .setPositiveButton("立即更新", (dialog, which) -> download(latest, backend, key))
-                .show();
+        UpdateDialogs.confirm(activity, installedVersionName(), latest.name,
+                () -> download(latest, backend, key));
     }
 
+    /** 用户确认后持续显示加载状态，直到网络下载和安装包校验真正结束。 */
     private void download(Latest latest, String backend, String key) {
         if (!downloading.compareAndSet(false, true)) return;
         cancelled.set(false);
-        AlertDialog progress = new AlertDialog.Builder(activity)
-                .setTitle("正在下载 v" + latest.name)
-                .setMessage("正在下载并验证安装包…")
-                .setNegativeButton("取消", (dialog, which) -> cancelled.set(true))
-                .create();
-        progress.setCancelable(false);
-        progress.show();
+        UpdateDialogs.Busy progress = UpdateDialogs.busy(activity,
+                "正在更新 v" + latest.name, "下载并校验安全安装包", () -> cancelled.set(true));
+        activeProgress = progress;
+        progress.update("正在连接更新服务器…", -1);
         executor.execute(() -> {
             File staging = new File(activity.getCacheDir(), "app-update.part");
             try {
@@ -152,7 +199,11 @@ final class AppUpdater {
                 pendingInstall = apk;
                 activity.runOnUiThread(() -> {
                     progress.dismiss();
-                    if (!activity.isDestroyed()) installPending();
+                    if (cancelled.get()) {
+                        pendingInstall = null;
+                    } else if (!activity.isDestroyed() && !activity.isFinishing()) {
+                        installPending();
+                    }
                 });
             } catch (Exception error) {
                 Log.w(TAG, "下载更新失败", error);
@@ -160,14 +211,16 @@ final class AppUpdater {
             } finally {
                 if (staging.exists()) staging.delete();
                 downloading.set(false);
-                activity.runOnUiThread(progress::dismiss);
+                activity.runOnUiThread(() -> {
+                    progress.dismiss();
+                    if (activeProgress == progress) activeProgress = null;
+                });
             }
         });
     }
-
     /** 下载时校验文件长度和 SHA-256，安装前还必须比对应用包名与签名证书。 */
     private void downloadAndVerify(Latest latest, String backend, String key, File staging,
-                                   AlertDialog progress) throws Exception {
+                                   UpdateDialogs.Busy progress) throws Exception {
         String url = backend + UPDATE_PATH + "/download?version=" + latest.name;
         HttpURLConnection connection = open(url, key);
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -185,10 +238,10 @@ final class AppUpdater {
                     output.write(buffer, 0, n);
                     digest.update(buffer, 0, n);
                     int percent = (int) (bytes * 100 / latest.size);
-                    if (percent != lastPercent && percent % 5 == 0) {
+                    if (percent == 100 || percent >= lastPercent + 5) {
                         lastPercent = percent;
                         final int shown = percent;
-                        activity.runOnUiThread(() -> progress.setMessage("已下载 " + shown + "%"));
+                        activity.runOnUiThread(() -> progress.update("已下载 " + shown + "%", shown));
                     }
                 }
             }
@@ -196,6 +249,7 @@ final class AppUpdater {
             connection.disconnect();
         }
         if (cancelled.get()) return;
+        activity.runOnUiThread(() -> progress.update("下载完成，正在校验安装包…", -1));
         if (bytes != latest.size) throw new IllegalStateException("安装包未完整下载");
         StringBuilder sha = new StringBuilder(64);
         for (byte b : digest.digest()) sha.append(String.format(Locale.ROOT, "%02x", b & 255));
@@ -287,6 +341,16 @@ final class AppUpdater {
     void shutdown() {
         cancelled.set(true);
         executor.shutdownNow();
+        checking.set(false);
+        manualCheckRequested = false;
+        if (activeCheckProgress != null) {
+            activeCheckProgress.dismiss();
+            activeCheckProgress = null;
+        }
+        if (activeProgress != null) {
+            activeProgress.dismiss();
+            activeProgress = null;
+        }
     }
 
     private static final class Latest {
