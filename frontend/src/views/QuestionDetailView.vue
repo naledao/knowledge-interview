@@ -1,4 +1,5 @@
 <script setup lang='ts'>
+import { Home, ChevronRight, MessageCircleQuestion, BookOpenCheck, Eye, EyeOff, ArrowLeft, ArrowRight, ArrowUpRight, CircleHelp, AlertCircle } from '@lucide/vue'
 import axios from 'axios'
 import { computed, ref, watch } from 'vue'
 import { useCachedRoute } from '../router/useCachedRoute'
@@ -83,14 +84,14 @@ watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
 <template>
   <div class='question-page'>
     <nav class='breadcrumbs' aria-label='面包屑导航'>
-      <RouterLink to='/'>首页</RouterLink>
-      <span aria-hidden='true'>/</span>
+      <RouterLink to='/'><Home :size='15' aria-hidden='true' />首页</RouterLink>
+      <ChevronRight :size='15' aria-hidden='true' />
       <RouterLink v-if='category' :to='`/categories/${category.id}`'>{{ category.name }}</RouterLink>
       <span v-else>知识分类</span>
-      <span aria-hidden='true'>/</span>
+      <ChevronRight :size='15' aria-hidden='true' />
       <RouterLink v-if='topic' :to='`/topics/${topic.id}`'>{{ topic.title }}</RouterLink>
       <span v-else>知识主题</span>
-      <span aria-hidden='true'>/</span>
+      <ChevronRight :size='15' aria-hidden='true' />
       <span aria-current='page'>问题详情</span>
     </nav>
 
@@ -100,14 +101,14 @@ watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
     </section>
 
     <section v-else-if='errorMessage' class='state-panel' role='alert'>
-      <div class='state-symbol' aria-hidden='true'>!</div>
+      <div class='state-symbol' aria-hidden='true'><AlertCircle :size='30' /></div>
       <h1>加载失败</h1>
       <p>{{ errorMessage }}</p>
       <button type='button' class='primary-action' @click='loadQuestion'>重新加载</button>
     </section>
 
     <section v-else-if='notFound' class='state-panel'>
-      <div class='state-symbol' aria-hidden='true'>?</div>
+      <div class='state-symbol' aria-hidden='true'><CircleHelp :size='30' /></div>
       <h1>问题不存在</h1>
       <p>请返回主题查看其他问题。</p>
       <RouterLink to='/' class='primary-action'>返回首页</RouterLink>
@@ -115,20 +116,21 @@ watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
 
     <template v-else-if='question'>
       <header class='question-hero'>
+        <span class='hero-icon' aria-hidden='true'><MessageCircleQuestion :size='24' /></span>
         <h1>{{ question.questionText }}</h1>
         <div class='hero-footer'>
           <span class='topic-label'>{{ topic?.title || '知识问题' }}</span>
-          <RouterLink :to='`/topics/${question.topicId}`' class='topic-link'>返回主题 <span aria-hidden='true'>↗</span></RouterLink>
+          <RouterLink :to='`/topics/${question.topicId}`' class='topic-link'>返回主题 <ArrowUpRight :size='17' aria-hidden='true' /></RouterLink>
         </div>
       </header>
 
       <section class='answer-section' aria-labelledby='answer-heading'>
         <div class='answer-heading'>
           <div>
-            <h2 id='answer-heading'>参考答案</h2>
+            <h2 id='answer-heading'><BookOpenCheck :size='23' aria-hidden='true' />参考答案</h2>
           </div>
           <button v-if='answerText' class='answer-toggle' type='button' :aria-expanded='showAnswer' aria-controls='answer-content' @click='showAnswer = !showAnswer'>
-            {{ showAnswer ? '收起答案' : '展开答案' }}
+            <EyeOff v-if='showAnswer' :size='17' aria-hidden='true' /><Eye v-else :size='17' aria-hidden='true' />{{ showAnswer ? '收起答案' : '展开答案' }}
           </button>
         </div>
         <div id='answer-content' class='answer-card' :class="{ 'answer-card-html': answerIsHtml }">
@@ -141,11 +143,11 @@ watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
 
       <nav v-if='previousQuestion || nextQuestion' class='question-navigation' aria-label='题目切换'>
         <RouterLink v-if='previousQuestion' class='nav-card' :to='`/questions/${previousQuestion.id}`'>
-          <span class='nav-direction'>← 上一题</span>
+          <span class='nav-direction'><ArrowLeft :size='16' aria-hidden='true' />上一题</span>
           <strong>{{ previousQuestion.questionText }}</strong>
         </RouterLink>
         <RouterLink v-if='nextQuestion' class='nav-card nav-next' :to='`/questions/${nextQuestion.id}`'>
-          <span class='nav-direction'>下一题 →</span>
+          <span class='nav-direction'>下一题<ArrowRight :size='16' aria-hidden='true' /></span>
           <strong>{{ nextQuestion.questionText }}</strong>
         </RouterLink>
       </nav>
@@ -216,4 +218,15 @@ watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
 .answer-section { margin-top: 30px; }
 @media (max-width: 640px) { .question-hero { padding: 24px 20px; } .question-hero h1 { margin: 0 0 16px; font-size: 22px; } }
 
+
+/* 页面图标增强 */
+.breadcrumbs a { display: inline-flex; align-items: center; gap: 6px; }
+.breadcrumbs > svg { flex-shrink: 0; color: #94a3b8; }
+.hero-icon { display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid #d2e2ff; border-radius: 14px; background: #fff; color: #3767cd; box-shadow: 0 6px 18px #315ed214; }
+.answer-heading h2, .answer-toggle, .topic-link, .nav-direction { display: inline-flex; align-items: center; gap: 9px; }
+.answer-heading h2 > svg { color: #4774d4; flex-shrink: 0; }
+.answer-toggle { justify-content: center; }
+.nav-card { transition: transform .18s, box-shadow .18s; }
+.nav-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px #1d4ed812; }
+@media (prefers-reduced-motion: reduce) { .nav-card:hover { transform: none; } }
 </style>

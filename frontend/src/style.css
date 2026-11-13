@@ -88,3 +88,14 @@ button, input { font: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .header-search, .mobile-nav-transition-enter-active, .mobile-nav-transition-leave-active { transition: none; }
 }
+/* 全站视觉规范：图标、导航和交互状态。 */
+:root { --ui-primary: #315ed2; --ui-border: #e2e9f5; --ui-muted: #63758c; --ui-surface: #fff; }
+body { background: linear-gradient(180deg, #f8faff 0, #f8fafc 260px); }
+.desktop-nav a { gap: 8px; }
+.header-search { background: #f5f8fe; }
+.header-search button { transition: background .18s; }
+.mobile-nav-label { display: inline-flex; align-items: center; gap: 12px; color: inherit !important; }
+.mobile-nav > a > svg { color: #91a2b8; }
+.mobile-nav > a.is-active > svg { color: #2563eb; }
+:where(a, button, input, textarea, select):focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }

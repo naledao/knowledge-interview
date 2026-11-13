@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { House, Compass, Search, ArrowRight, ArrowUpRight, Sparkles } from '@lucide/vue'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -22,9 +23,9 @@ function searchKnowledge() {
       <div class="error-illustration" aria-hidden="true">
         <div class="decoration-circle circle-outer"></div>
         <div class="decoration-circle circle-inner"></div>
-        <div class="error-code">4<span class="zero">0<span class="zero-spark">✦</span></span>4</div>
-        <span class="floating-star star-left">✧</span>
-        <span class="floating-star star-right">✦</span>
+        <div class="error-code">4<span class="zero">0<Sparkles class="zero-spark" :size="24" /></span>4</div>
+        <Sparkles class="floating-star star-left" :size="23" />
+        <Sparkles class="floating-star star-right" :size="18" />
         <div class="illustration-caption"><span class="caption-dot"></span> 探索未停止，知识仍在这里</div>
       </div>
 
@@ -33,23 +34,23 @@ function searchKnowledge() {
 
       <div class="primary-actions">
         <RouterLink class="home-action" to="/">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" /></svg>
+          <House :size="19" aria-hidden="true" />
           返回首页
         </RouterLink>
         <RouterLink class="browse-action" to="/search">
-          浏览知识库 <span aria-hidden="true">↗</span>
+          <Compass :size="18" aria-hidden="true" />浏览知识库 <ArrowUpRight :size="16" aria-hidden="true" />
         </RouterLink>
       </div>
 
       <div class="search-card">
         <div class="search-card-heading">
-          <span class="search-icon" aria-hidden="true">⌕</span>
+          <span class="search-icon" aria-hidden="true"><Search :size="22" /></span>
           <div><strong>换个关键词试试？</strong><p>搜索分类、主题和面试问题，继续你的知识探索。</p></div>
         </div>
         <form class="search-form" role="search" @submit.prevent="searchKnowledge">
           <label for="not-found-search" class="sr-only">搜索知识点</label>
           <input id="not-found-search" v-model="searchKeyword" type="search" placeholder="输入想了解的知识点..." autocomplete="off" maxlength="200" />
-          <button type="submit" :disabled="!searchKeyword.trim()">搜索知识 <span aria-hidden="true">→</span></button>
+          <button type="submit" :disabled="!searchKeyword.trim()">搜索知识 <ArrowRight :size="16" aria-hidden="true" /></button>
         </form>
       </div>
     </div>
@@ -100,4 +101,14 @@ a:focus-visible, button:focus-visible { outline: 3px solid #93c5fd; outline-offs
 @media (max-width: 640px) { .not-found-page { min-height: calc(100vh - 135px); padding: 24px 0 48px; } .error-illustration { height: 220px; } .circle-outer { width: 270px; height: 190px; } .circle-inner { width: 210px; height: 138px; } .error-code { font-size: clamp(104px, 26vw, 145px); } .star-left { left: 8%; } .star-right { right: 7%; } .illustration-caption { bottom: 3px; } .description { font-size: 14px; } .desktop-break { display: none; } .primary-actions { margin: 25px 0 36px; } .search-card { padding: 21px 18px; border-radius: 16px; } .search-form { gap: 7px; } .search-form button { min-width: 85px; padding: 0 10px; } }
 @media (max-width: 360px) { .primary-actions a { padding: 0 17px; } .search-card-heading p { font-size: 11px; } }
 @media (prefers-reduced-motion: reduce) { .primary-actions a { transition: none; } }
+
+/* 页面图标增强：404引导和快捷搜索。 */
+.zero-spark { display: inline-block; vertical-align: middle; }
+.floating-star { width: 23px; height: 23px; }
+.primary-actions a, .search-form button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; }
+.primary-actions a > svg, .search-form button > svg { flex-shrink: 0; }
+.search-card { border-color: #dce6f6; box-shadow: 0 16px 35px #1d4ed80a; }
+.search-icon { background: linear-gradient(135deg, #eaf2ff, #f1edff); }
+.search-form button { white-space: nowrap; }
+@media (max-width: 640px) { .primary-actions a { gap: 6px; } .search-form button { gap: 5px; } }
 </style>

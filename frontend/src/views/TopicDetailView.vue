@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Home, ChevronRight, BookOpenText, ArrowUpRight, CircleHelp, AlertCircle } from '@lucide/vue'
 import axios from 'axios'
 import { computed, ref, watch } from 'vue'
 import { useCachedRoute } from '../router/useCachedRoute'
@@ -81,11 +82,11 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
 <template>
   <div class="topic-page">
     <nav class="breadcrumbs" aria-label="面包屑导航">
-      <RouterLink to="/">首页</RouterLink>
-      <span aria-hidden="true">/</span>
+      <RouterLink to="/"><Home :size="15" aria-hidden="true" />首页</RouterLink>
+      <ChevronRight :size="15" aria-hidden="true" />
       <RouterLink v-if="topic" :to="`/categories/${topic.categoryId}`">{{ category?.name || '所属分类' }}</RouterLink>
       <span v-else>所属分类</span>
-      <span aria-hidden="true">/</span>
+      <ChevronRight :size="15" aria-hidden="true" />
       <span class="current-crumb" aria-current="page">{{ topic?.title || '主题详情' }}</span>
     </nav>
 
@@ -95,14 +96,14 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
     </section>
 
     <section v-else-if="errorMessage" class="state-panel" role="alert">
-      <div class="state-symbol" aria-hidden="true">!</div>
+      <div class="state-symbol" aria-hidden="true"><AlertCircle :size="30" /></div>
       <h1>加载失败</h1>
       <p>{{ errorMessage }}</p>
       <button class="primary-action" type="button" @click="loadTopic()">重新加载</button>
     </section>
 
     <section v-else-if="notFound" class="state-panel">
-      <div class="state-symbol" aria-hidden="true">?</div>
+      <div class="state-symbol" aria-hidden="true"><CircleHelp :size="30" /></div>
       <h1>主题不存在</h1>
       <p>请返回首页查找其他主题。</p>
       <RouterLink class="primary-action" to="/">返回首页</RouterLink>
@@ -115,7 +116,7 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
           <MarkdownContent v-if="topic.description" class="hero-description" size="compact" :source="topic.description" />
           <div class="hero-meta">
             <span class="meta-pill"><strong>{{ questionTotal }}</strong> 个相关问题</span>
-            <RouterLink class="category-link" :to="`/categories/${topic.categoryId}`">返回分类 <span aria-hidden="true">↗</span></RouterLink>
+            <RouterLink class="category-link" :to="`/categories/${topic.categoryId}`">返回分类 <ArrowUpRight :size="17" aria-hidden="true" /></RouterLink>
           </div>
         </div>
       </header>
@@ -123,7 +124,7 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
       <section class="questions-section" aria-labelledby="questions-heading">
         <div class="section-heading">
           <div>
-            <h2 id="questions-heading">知识问题</h2>
+            <h2 id="questions-heading"><BookOpenText :size="23" aria-hidden="true" />知识问题</h2>
           </div>
         </div>
 
@@ -134,13 +135,13 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
               <span class="question-main">
                 <strong>{{ question.questionText }}</strong>
               </span>
-              <span class="question-arrow" aria-hidden="true">↗</span>
+              <span class="question-arrow" aria-hidden="true"><ArrowUpRight :size="21" /></span>
             </RouterLink>
           </li>
         </ol>
 
         <div v-else class="empty-state">
-          <div class="empty-symbol" aria-hidden="true">◇</div>
+          <div class="empty-symbol" aria-hidden="true"><BookOpenText :size="30" /></div>
           <h3>暂无问题</h3>
           <RouterLink class="return-link" :to="`/categories/${topic.categoryId}`">浏览其他主题 →</RouterLink>
         </div>
@@ -215,4 +216,15 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
 .section-heading h2 { font-size: 22px; }
 @media (max-width: 640px) { .topic-hero { padding: 24px 20px; } }
 
+
+/* 页面图标增强 */
+.breadcrumbs a { display: inline-flex; align-items: center; gap: 6px; }
+.breadcrumbs > svg { flex-shrink: 0; color: #94a3b8; }
+.hero-icon { display: grid; width: 48px; height: 48px; place-items: center; margin-bottom: 19px; border: 1px solid #e3dcff; border-radius: 14px; background: #fff; color: #7955cb; box-shadow: 0 6px 18px #6d28d91a; }
+.section-heading h2, .category-link { display: inline-flex; align-items: center; gap: 10px; }
+.section-heading h2 > svg { color: #7955cb; flex-shrink: 0; }
+.question-arrow { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #f2effd; }
+.question-card { transition: transform .18s, box-shadow .18s, border-color .18s; }
+.question-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px #6d28d914; }
+@media (prefers-reduced-motion: reduce) { .question-card:hover { transform: none; } }
 </style>

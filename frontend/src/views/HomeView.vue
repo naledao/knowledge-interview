@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { getCategories, getTopics, type KnowledgeCategory, type KnowledgeTopic } from '../api/knowledge'
 import { markdownToPlainText } from '../utils/plainText'
 import ListPagination from '../components/ListPagination.vue'
+import { ArrowRight, ArrowUpRight, BookOpen, Clock3, FolderOpen, Layers3, Search, Sparkles } from '@lucide/vue'
 
 const router = useRouter()
 const keyword = ref('')
@@ -65,26 +66,26 @@ onMounted(loadHome)
 <template>
   <div class="home-page">
     <section class="home-hero" aria-labelledby="home-title">
-      <p class="home-kicker">知识题库</p>
+      <p class="home-kicker"><Sparkles :size="15" aria-hidden="true" />知识题库 · 学习空间</p>
       <h1 id="home-title">找到你要复习的知识点</h1>
       <p class="home-subtitle">直接搜索，或按分类浏览。</p>
       <form class="home-search" role="search" @submit.prevent="search">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>
+        <Search :size="20" aria-hidden="true" />
         <input v-model="keyword" type="search" aria-label="搜索知识点" placeholder="搜索知识点、面试题" autocomplete="off" />
-        <button type="submit">搜索</button>
+        <button type="submit">开始搜索 <ArrowRight :size="17" aria-hidden="true" /></button>
       </form>
     </section>
 
     <section class="home-section" aria-labelledby="category-heading">
       <div class="home-section-heading">
-        <h2 id="category-heading">知识分类</h2>
+        <h2 id="category-heading"><Layers3 :size="22" aria-hidden="true" />知识分类</h2>
       </div>
       <p v-if="loading" class="home-status" role="status">加载中…</p>
       <div v-else-if="error" class="home-status home-error" role="alert">{{ error }} <button type="button" @click="loadHome">重试</button></div>
       <p v-else-if="!categories.length" class="home-status">暂无分类</p>
       <div v-else class="category-grid">
         <RouterLink v-for="category in categories" :key="category.id" :to="`/categories/${category.id}`" class="category-card">
-          <div class="category-card-top"><h3>{{ category.name }}</h3><span class="category-arrow" aria-hidden="true">→</span></div>
+          <div class="category-card-top"><span class="category-icon"><FolderOpen :size="22" aria-hidden="true" /></span><ArrowUpRight class="category-arrow" :size="19" aria-hidden="true" /></div><h3>{{ category.name }}</h3>
           <p v-if="category.description">{{ category.description }}</p>
         </RouterLink>
       </div>
@@ -93,16 +94,16 @@ onMounted(loadHome)
 
     <section class="home-section recent-section" aria-labelledby="recent-heading">
       <div class="home-section-heading">
-        <h2 id="recent-heading">最近更新</h2>
-        <RouterLink to="/search" class="section-link">搜索更多 <span aria-hidden="true">→</span></RouterLink>
+        <h2 id="recent-heading"><Clock3 :size="22" aria-hidden="true" />最近更新</h2>
+        <RouterLink to="/search" class="section-link">搜索更多 <ArrowRight :size="16" aria-hidden="true" /></RouterLink>
       </div>
       <p v-if="loading" class="home-status" role="status">加载中…</p>
       <p v-else-if="!recentItems.length" class="home-status">暂无内容</p>
       <div v-else class="recent-list">
         <RouterLink v-for="item in recentItems" :key="item.id" :to="`/topics/${item.id}`" class="recent-item">
-          <span class="recent-title">{{ item.title }}</span>
+          <span class="recent-item-icon"><BookOpen :size="18" aria-hidden="true" /></span><span class="recent-title">{{ item.title }}</span>
           <span v-if="item.category" class="recent-category">{{ item.category }}</span>
-          <span class="recent-arrow" aria-hidden="true">→</span>
+          <ArrowRight class="recent-arrow" :size="18" aria-hidden="true" />
         </RouterLink>
       </div>
     </section>
@@ -150,4 +151,27 @@ onMounted(loadHome)
 @media (max-width: 520px) { .home-page { padding: 0 0 46px; } .home-hero { padding: 27px 20px; border-radius: 16px; } .home-hero h1 { font-size: 27px; } .home-subtitle { margin-bottom: 20px; font-size: 13px; } .home-search { gap: 8px; padding-left: 12px; } .home-search input { font-size: 13px; } .home-search button { padding: 11px 16px; } .home-section { margin-top: 32px; } .home-section-heading h2 { font-size: 20px; } .category-grid { gap: 10px; } .category-card { min-height: 112px; padding: 17px; } .category-card h3 { font-size: 15px; } .category-card p { font-size: 12px; } .recent-item { gap: 10px; padding: 15px 14px; } .recent-title { font-size: 13px; } .recent-category { font-size: 11px; } }
 @media (max-width: 340px) { .category-grid { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .category-card { transition: none; } }
+
+/* 首页：统一图标容器、层次与交互反馈。 */
+.home-hero { position: relative; overflow: hidden; background: radial-gradient(circle at 93% 8%, #dbeafe 0, transparent 34%), linear-gradient(125deg, #eef5ff, #f8faff 67%, #f0efff); box-shadow: 0 18px 40px rgba(30, 64, 175, .055); }
+.home-hero::after { content: ''; position: absolute; right: -96px; top: -105px; width: 250px; height: 250px; border: 36px solid rgba(99, 102, 241, .065); border-radius: 50%; pointer-events: none; }
+.home-hero > * { position: relative; z-index: 1; }
+.home-kicker { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border: 1px solid #d4e2ff; border-radius: 99px; background: #ffffffa8; }
+.home-search { box-shadow: 0 6px 22px rgba(30, 64, 175, .06); }
+.home-search button, .section-link { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.home-section-heading h2 { display: inline-flex; align-items: center; gap: 11px; }
+.home-section-heading h2 svg { color: #477ce6; }
+.category-card { min-height: 162px; transition: transform .18s, border-color .18s, box-shadow .18s; }
+.category-card:hover { transform: translateY(-3px); box-shadow: 0 15px 35px rgba(30, 64, 175, .085); }
+.category-card-top { align-items: center; margin-bottom: 15px; }
+.category-icon { display: grid; width: 44px; height: 44px; place-items: center; border-radius: 13px; background: #edf4ff; color: #3b68cd; }
+.category-card:nth-child(3n + 2) .category-icon { background: #f0edff; color: #7755d7; }
+.category-card:nth-child(3n) .category-icon { background: #e8f7f3; color: #208c79; }
+.category-arrow { color: #93a5bd; transition: transform .18s; }
+.category-card:hover .category-arrow, .recent-item:hover .recent-arrow { transform: translate(2px, -2px); color: #2563eb; }
+.category-card h3 { margin-bottom: 7px; }
+.recent-item-icon { display: grid; flex: 0 0 37px; height: 37px; place-items: center; border-radius: 10px; background: #eef4ff; color: #5378c8; }
+.recent-arrow { flex-shrink: 0; transition: transform .18s; }
+@media (max-width: 520px) { .category-card { min-height: 147px; } .category-icon { width: 39px; height: 39px; } .home-search button { gap: 4px; } .recent-item-icon { flex-basis: 32px; height: 32px; } }
+@media (prefers-reduced-motion: reduce) { .category-card:hover { transform: none; } .recent-arrow, .category-arrow { transition: none; } }
 </style>

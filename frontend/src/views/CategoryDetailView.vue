@@ -1,4 +1,5 @@
 <script setup lang='ts'>
+import { Home, ChevronRight, Layers3, BookOpen, ArrowUpRight, CircleHelp, AlertCircle } from '@lucide/vue'
 import axios from 'axios'
 import { computed, ref, watch } from 'vue'
 import { useCachedRoute } from '../router/useCachedRoute'
@@ -78,8 +79,8 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
 <template>
   <div class='category-page'>
     <nav class='breadcrumbs' aria-label='面包屑导航'>
-      <RouterLink to='/'>首页</RouterLink>
-      <span aria-hidden='true'>/</span>
+      <RouterLink to='/'><Home :size='15' aria-hidden='true' />首页</RouterLink>
+      <ChevronRight :size='15' aria-hidden='true' />
       <span aria-current='page'>{{ category?.name || '分类详情' }}</span>
     </nav>
 
@@ -89,14 +90,14 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
     </section>
 
     <section v-else-if='errorMessage' class='state-panel' role='alert'>
-      <div class='state-symbol' aria-hidden='true'>!</div>
+      <div class='state-symbol' aria-hidden='true'><AlertCircle :size='30' /></div>
       <h1>加载失败</h1>
       <p>{{ errorMessage }}</p>
       <button type='button' class='primary-action' @click='loadCategory()'>重新加载</button>
     </section>
 
     <section v-else-if='notFound' class='state-panel'>
-      <div class='state-symbol' aria-hidden='true'>?</div>
+      <div class='state-symbol' aria-hidden='true'><CircleHelp :size='30' /></div>
       <h1>分类不存在</h1>
       <p>请返回首页查找其他分类。</p>
       <RouterLink to='/' class='primary-action'>返回首页</RouterLink>
@@ -105,6 +106,7 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
     <template v-else-if='category'>
       <header class='category-hero'>
         <div class='hero-content'>
+          <span class='hero-icon' aria-hidden='true'><BookOpen :size='24' /></span>
           <h1>{{ category.name }}</h1>
           <MarkdownContent v-if='category.description' class='category-description' size='compact' :source='category.description' />
           <div class='hero-summary'>
@@ -117,7 +119,7 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
       <section class='topics-section' aria-labelledby='topics-heading'>
         <div class='section-heading'>
           <div>
-            <h2 id='topics-heading'>学习主题</h2>
+            <h2 id='topics-heading'><Layers3 :size='23' aria-hidden='true' />学习主题</h2>
           </div>
         </div>
 
@@ -130,7 +132,7 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
           >
             <div class='topic-card-top'>
               <span class='topic-index'>{{ String((topicPage - 1) * 6 + index + 1).padStart(2, '0') }}</span>
-              <span class='card-arrow' aria-hidden='true'>↗</span>
+              <span class='card-arrow' aria-hidden='true'><ArrowUpRight :size='19' /></span>
             </div>
             <h3>{{ topic.title }}</h3>
             <p v-if='topic.description' class='topic-description'>{{ markdownToPlainText(topic.description) }}</p>
@@ -138,7 +140,7 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
         </div>
 
         <div v-else class='empty-state'>
-          <div class='empty-symbol' aria-hidden='true'>◇</div>
+          <div class='empty-symbol' aria-hidden='true'><BookOpen :size='30' /></div>
           <h3>暂无学习主题</h3>
           <RouterLink to='/' class='home-link'>浏览其他分类 →</RouterLink>
         </div>
@@ -215,4 +217,16 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
 .section-heading h2 { font-size: 22px; }
 @media (max-width: 640px) { .category-hero { padding: 24px 20px; } }
 
+
+/* 页面图标增强 */
+.breadcrumbs a { display: inline-flex; align-items: center; gap: 6px; }
+.breadcrumbs > svg { flex-shrink: 0; color: #94a3b8; }
+.hero-icon { display: grid; width: 48px; height: 48px; place-items: center; margin-bottom: 19px; border: 1px solid #d2e2ff; border-radius: 14px; background: #fff; color: #3767cd; box-shadow: 0 6px 18px #315ed214; }
+.section-heading h2 { display: inline-flex; align-items: center; gap: 11px; }
+.section-heading h2 > svg { color: #4774d4; flex-shrink: 0; }
+.topic-card { transition: transform .18s, box-shadow .18s, border-color .18s; }
+.topic-card:hover { transform: translateY(-3px); box-shadow: 0 12px 28px #1d4ed815; }
+.card-arrow { transition: background .18s, color .18s; }
+.topic-card:hover .card-arrow { background: #e7efff; color: #315ed2; }
+@media (prefers-reduced-motion: reduce) { .topic-card:hover { transform: none; } }
 </style>

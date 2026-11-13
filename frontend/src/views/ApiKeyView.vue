@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { LockKeyhole, Eye, EyeOff, ShieldCheck, ArrowRight, Info, AlertCircle, LoaderCircle } from '@lucide/vue'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCachedRoute } from '../router/useCachedRoute'
@@ -47,19 +48,19 @@ async function submitKey() {
 <template>
   <section class="api-key-page" aria-labelledby="api-key-title">
     <div class="key-card">
-      <div class="key-icon" aria-hidden="true">🔐</div>
+      <div class="key-icon" aria-hidden="true"><LockKeyhole :size="29" :stroke-width="1.8" /></div>
       <h1 id="api-key-title">设置 API Key</h1>
       <p class="key-description">访问知识分类和主题需要验证 API Key。请输入服务端配置的密钥，验证成功后将返回原页面。</p>
       <form @submit.prevent="submitKey">
         <label for="api-key-input">API Key</label>
         <div class="key-input-row">
           <input id="api-key-input" v-model="apiKey" :type="showKey ? 'text' : 'password'" placeholder="请输入 API Key" autocomplete="off" autocapitalize="off" spellcheck="false" required />
-          <button type="button" class="visibility-button" @click="showKey = !showKey">{{ showKey ? '隐藏' : '显示' }}</button>
+          <button type="button" class="visibility-button" :aria-label="showKey ? '隐藏密钥' : '显示密钥'" :aria-pressed="showKey" @click="showKey = !showKey"><EyeOff v-if="showKey" :size="17" aria-hidden="true" /><Eye v-else :size="17" aria-hidden="true" />{{ showKey ? '隐藏' : '显示' }}</button>
         </div>
-        <p v-if="errorMessage" class="key-error" role="alert">{{ errorMessage }}</p>
-        <button class="submit-button" type="submit" :disabled="checking || !apiKey.trim()">{{ checking ? '正在验证…' : '验证并继续' }}</button>
+        <p v-if="errorMessage" class="key-error" role="alert"><AlertCircle :size="17" aria-hidden="true" />{{ errorMessage }}</p>
+        <button class="submit-button" type="submit" :disabled="checking || !apiKey.trim()"><LoaderCircle v-if="checking" :size="18" class="key-spinner" aria-hidden="true" /><ShieldCheck v-else :size="18" aria-hidden="true" />{{ checking ? '正在验证…' : '验证并继续' }}<ArrowRight v-if="!checking" :size="17" aria-hidden="true" /></button>
       </form>
-      <p class="key-note">密钥仅保存在当前浏览器标签页的会话存储中，不会写入网址或前端构建文件；关闭标签页后需重新输入。请勿在公共设备上使用私人密钥。</p>
+      <p class="key-note"><Info :size="17" aria-hidden="true" /><span>密钥仅保存在当前浏览器标签页的会话存储中，不会写入网址或前端构建文件；关闭标签页后需重新输入。请勿在公共设备上使用私人密钥。</span></p>
     </div>
   </section>
 </template>
@@ -80,4 +81,22 @@ input { min-width: 0; flex: 1; border: 0; outline: 0; padding: 13px 14px; font: 
 .key-error { color: #b91c1c; margin: 12px 0 0; line-height: 1.6; }
 .key-note { margin: 22px 0 0; color: #64748b; font-size: 13px; line-height: 1.8; }
 @media (max-width: 640px) { .api-key-page { min-height: 60vh; padding: 12px 0; } .key-card { padding: 24px 20px; } h1 { font-size: 24px; } }
+
+/* 页面图标增强：密钥验证表单。 */
+.api-key-page { background: radial-gradient(circle at 50% 15%, #eaf1ff 0%, transparent 58%); }
+.key-card { border-color: #dce7f5; box-shadow: 0 22px 58px #1e40af0c, 0 2px 10px #1e293b08; }
+.key-icon { display: grid; width: 60px; height: 60px; place-items: center; margin-bottom: 20px; border: 1px solid #cfddff; border-radius: 18px; background: linear-gradient(135deg, #eaf2ff, #f0edff); color: #365fcd; }
+.key-input-row { background: #fafdff; transition: border-color .2s, box-shadow .2s; }
+.key-input-row input { background: transparent; }
+.visibility-button { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.visibility-button:hover { background: #eef4ff; }
+.submit-button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 50px; transition: background .18s, box-shadow .18s; }
+.submit-button:not(:disabled):hover { background: #1d4ed8; box-shadow: 0 8px 22px #2563eb30; }
+.key-error { display: flex; align-items: flex-start; gap: 8px; }
+.key-error svg { flex-shrink: 0; margin-top: 3px; }
+.key-note { display: flex; gap: 10px; padding: 13px 14px; border-radius: 11px; background: #f4f7fc; }
+.key-note svg { flex-shrink: 0; margin-top: 3px; color: #647da2; }
+.key-spinner { animation: key-spin 1s linear infinite; }
+@keyframes key-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .key-spinner { animation: none; } }
 </style>

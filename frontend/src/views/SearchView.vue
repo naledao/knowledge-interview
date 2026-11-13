@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Search, FolderOpen, Layers3, CircleHelp, SearchX, AlertCircle, ArrowUpRight } from '@lucide/vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter, type LocationQueryRaw } from 'vue-router'
 import { useCachedRoute } from '../router/useCachedRoute'
@@ -162,10 +163,10 @@ onBeforeUnmount(() => controller?.abort())
 <template>
   <div class="search-page">
     <section class="search-hero" aria-labelledby="search-title">
-      <h1 id="search-title">搜索题库</h1>
+      <h1 id="search-title"><Search :size="29" aria-hidden="true" />搜索题库</h1>
       <p>支持分类、主题、问题及答案搜索；多个关键词用空格分隔。</p>
       <form class="search-form" role="search" @submit.prevent="submitSearch">
-        <span class="search-symbol" aria-hidden="true">⌕</span>
+        <Search class="search-symbol" :size="24" aria-hidden="true" />
         <input
           v-model="searchInput"
           type="search"
@@ -187,7 +188,7 @@ onBeforeUnmount(() => controller?.abort())
     <section v-if="keyword" class="search-content" aria-labelledby="results-title">
       <div class="result-heading">
         <div>
-          <h2 id="results-title">搜索结果</h2>
+          <h2 id="results-title"><Layers3 :size="22" aria-hidden="true" />搜索结果</h2>
           <p aria-live="polite">
             <template v-if="showSkeleton">正在检索知识库...</template>
             <template v-else-if="errorMessage">暂时无法获取结果</template>
@@ -205,7 +206,7 @@ onBeforeUnmount(() => controller?.abort())
       </div>
 
       <div v-else-if="errorMessage" class="message-panel" role="alert">
-        <div class="message-icon error-icon" aria-hidden="true">!</div>
+        <div class="message-icon error-icon" aria-hidden="true"><AlertCircle :size="30" /></div>
         <h3>搜索失败</h3>
         <p>{{ errorMessage }}</p>
         <button class="outline-button" type="button" @click="runSearch">重新搜索</button>
@@ -226,7 +227,7 @@ onBeforeUnmount(() => controller?.abort())
         </div>
 
         <div v-if="!result.items.length" class="message-panel">
-          <div class="message-icon" aria-hidden="true">◇</div>
+          <div class="message-icon" aria-hidden="true"><SearchX :size="30" /></div>
           <h3>{{ result.counts.all ? '该类型下暂无匹配内容' : '没有找到相关内容' }}</h3>
           <p>试试其他关键词。</p>
           <button v-if="result.counts.all" class="outline-button" type="button" @click="setType('all')">查看全部结果</button>
@@ -241,8 +242,8 @@ onBeforeUnmount(() => controller?.abort())
               class="result-card"
             >
               <div class="result-topline">
-                <span :class="['kind-tag', `kind-${item.kind}`]">{{ kindLabels[item.kind] }}</span>
-                <span class="result-breadcrumb">{{ item.breadcrumb }}</span>
+                <span :class="['kind-tag', `kind-${item.kind}`]"><FolderOpen v-if="item.kind === 'category'" :size="13" /><Layers3 v-else-if="item.kind === 'topic'" :size="13" /><CircleHelp v-else :size="13" />{{ kindLabels[item.kind] }}</span>
+                <span class="result-breadcrumb">{{ item.breadcrumb }}</span><ArrowUpRight class="result-open-icon" :size="17" aria-hidden="true" />
               </div>
               <h3>
                 <template v-for="(segment, index) in highlighted(item.title)" :key="index">
@@ -383,4 +384,15 @@ mark { padding: 0 2px; border-radius: 3px; color: #4338ca; background: #e0e7ff; 
 .message-panel h3 { font-size: 17px; }
 @media (max-width: 640px) { .search-hero { padding: 24px 18px; } .search-hero h1 { font-size: 24px; } .search-form { min-height: 51px; } .search-content { padding-top: 24px; } .result-card { padding: 16px; } }
 
+
+/* 搜索页：统一图标语言与结果卡片的交互层次。 */
+.search-hero h1, .result-heading h2 { display: flex; align-items: center; gap: 12px; }
+.search-hero h1 > svg, .result-heading h2 > svg { color: #4f68d7; flex-shrink: 0; }
+.search-symbol { flex-shrink: 0; color: #7386a6; }
+.kind-tag { display: inline-flex; align-items: center; gap: 5px; }
+.result-open-icon { margin-left: auto; flex-shrink: 0; color: #91a5c0; transition: transform .2s, color .2s; }
+.result-card:hover .result-open-icon { transform: translate(2px, -2px); color: #315ed2; }
+.message-icon svg { stroke-width: 1.8; }
+.result-card { box-shadow: 0 2px 9px rgba(27, 54, 110, .025); }
+@media (prefers-reduced-motion: reduce) { .result-open-icon { transition: none; } }
 </style>
