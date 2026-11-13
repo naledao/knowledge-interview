@@ -9,7 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@iconify-icons/devicon": "^2.0.19",
     "@iconify-json/lucide": "^1.2.152",
+    "@iconify/vue": "^5.0.5",
     "@lucide/vue": "^1.70.0",
     "@nuxt/ui": "^4.12.0",
     "@tailwindcss/vite": "^4.3.5",

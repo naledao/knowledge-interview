@@ -4,7 +4,8 @@ import { useRouter } from 'vue-router'
 import { getCategories, getTopics, type KnowledgeCategory, type KnowledgeTopic } from '../api/knowledge'
 import { markdownToPlainText } from '../utils/plainText'
 import ListPagination from '../components/ListPagination.vue'
-import { ArrowRight, ArrowUpRight, BookOpen, Clock3, FolderOpen, Layers3, Search, Sparkles } from '@lucide/vue'
+import { ArrowRight, ArrowUpRight, Clock3, Layers3, Search, Sparkles } from '@lucide/vue'
+import SmartIcon from '../components/SmartIcon.vue'
 
 const router = useRouter()
 const keyword = ref('')
@@ -85,7 +86,7 @@ onMounted(loadHome)
       <p v-else-if="!categories.length" class="home-status">暂无分类</p>
       <div v-else class="category-grid">
         <RouterLink v-for="category in categories" :key="category.id" :to="`/categories/${category.id}`" class="category-card">
-          <div class="category-card-top"><span class="category-icon"><FolderOpen :size="22" aria-hidden="true" /></span><ArrowUpRight class="category-arrow" :size="19" aria-hidden="true" /></div><h3>{{ category.name }}</h3>
+          <div class="category-card-top"><SmartIcon class="category-icon" :text="category.name" :size="22" /><ArrowUpRight class="category-arrow" :size="19" aria-hidden="true" /></div><h3>{{ category.name }}</h3>
           <p v-if="category.description">{{ category.description }}</p>
         </RouterLink>
       </div>
@@ -101,7 +102,7 @@ onMounted(loadHome)
       <p v-else-if="!recentItems.length" class="home-status">暂无内容</p>
       <div v-else class="recent-list">
         <RouterLink v-for="item in recentItems" :key="item.id" :to="`/topics/${item.id}`" class="recent-item">
-          <span class="recent-item-icon"><BookOpen :size="18" aria-hidden="true" /></span><span class="recent-title">{{ item.title }}</span>
+          <SmartIcon class="recent-item-icon" :text="item.title" :secondary-text="item.category" :size="18" /><span class="recent-title">{{ item.title }}</span>
           <span v-if="item.category" class="recent-category">{{ item.category }}</span>
           <ArrowRight class="recent-arrow" :size="18" aria-hidden="true" />
         </RouterLink>
@@ -165,8 +166,6 @@ onMounted(loadHome)
 .category-card:hover { transform: translateY(-3px); box-shadow: 0 15px 35px rgba(30, 64, 175, .085); }
 .category-card-top { align-items: center; margin-bottom: 15px; }
 .category-icon { display: grid; width: 44px; height: 44px; place-items: center; border-radius: 13px; background: #edf4ff; color: #3b68cd; }
-.category-card:nth-child(3n + 2) .category-icon { background: #f0edff; color: #7755d7; }
-.category-card:nth-child(3n) .category-icon { background: #e8f7f3; color: #208c79; }
 .category-arrow { color: #93a5bd; transition: transform .18s; }
 .category-card:hover .category-arrow, .recent-item:hover .recent-arrow { transform: translate(2px, -2px); color: #2563eb; }
 .category-card h3 { margin-bottom: 7px; }
