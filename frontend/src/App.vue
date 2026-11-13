@@ -69,13 +69,13 @@ onUnmounted(() => {
 
         <nav class="desktop-nav" aria-label="主导航">
           <RouterLink to="/" :class="{ 'is-active': activeSection === 'home' }">首页</RouterLink>
-          <RouterLink to="/search" :class="{ 'is-active': activeSection === 'explore' }">探索题库</RouterLink>
+          <RouterLink to="/search" :class="{ 'is-active': activeSection === 'explore' }">搜索</RouterLink>
         </nav>
 
         <form class="header-search" role="search" @submit.prevent="submitSearch">
           <label for="header-search-input" class="visually-hidden">搜索知识点</label>
           <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>
-          <input id="header-search-input" v-model="searchKeyword" type="search" placeholder="搜索知识点、面试题..." autocomplete="off" />
+          <input id="header-search-input" v-model="searchKeyword" type="search" placeholder="搜索题库" autocomplete="off" />
           <button type="submit" aria-label="搜索知识">搜索</button>
         </form>
 
@@ -88,7 +88,7 @@ onUnmounted(() => {
           </a>
           <RouterLink to="/api-key" class="settings-link" :class="{ 'is-active': activeSection === 'settings' }" @click="closeMenu">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9 2 2-2 2 1 2-3 3-2-1-2 2"/></svg>
-            <span>密钥设置</span>
+            <span>设置</span>
           </RouterLink>
           <button type="button" class="mobile-menu-toggle" :aria-expanded="menuOpen" aria-controls="mobile-navigation" :aria-label="menuOpen ? '关闭导航菜单' : '打开导航菜单'" @click="menuOpen = !menuOpen">
             <svg v-if="menuOpen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5 19 19M19 5 5 19"/></svg>
@@ -99,17 +99,10 @@ onUnmounted(() => {
       <Transition name="mobile-nav-transition">
         <nav v-if="menuOpen" id="mobile-navigation" class="mobile-nav" aria-label="移动端导航">
           <RouterLink to="/" :class="{ 'is-active': activeSection === 'home' }" @click="closeMenu">首页<span aria-hidden="true">→</span></RouterLink>
-          <RouterLink to="/search" :class="{ 'is-active': activeSection === 'explore' }" @click="closeMenu">探索题库<span aria-hidden="true">→</span></RouterLink>
-          <RouterLink to="/api-key" :class="{ 'is-active': activeSection === 'settings' }" @click="closeMenu">密钥设置<span aria-hidden="true">→</span></RouterLink>
+          <RouterLink to="/search" :class="{ 'is-active': activeSection === 'explore' }" @click="closeMenu">搜索<span aria-hidden="true">→</span></RouterLink>
+          <RouterLink to="/api-key" :class="{ 'is-active': activeSection === 'settings' }" @click="closeMenu">设置<span aria-hidden="true">→</span></RouterLink>
           <a v-if="isNativeAndroid" href="knowledgeinterview://settings/backend" @click="closeMenu">服务器设置<span aria-hidden="true">→</span></a>
           <a v-if="isNativeAndroid" href="knowledgeinterview://settings/update" @click="closeMenu">检查更新<span aria-hidden="true">→</span></a>
-          <form class="mobile-search" role="search" @submit.prevent="submitSearch">
-            <label for="mobile-search-input">快速搜索知识点</label>
-            <div class="mobile-search-row">
-              <input id="mobile-search-input" v-model="searchKeyword" type="search" placeholder="输入关键词..." autocomplete="off" />
-              <button type="submit">搜索</button>
-            </div>
-          </form>
         </nav>
       </Transition>
     </header>

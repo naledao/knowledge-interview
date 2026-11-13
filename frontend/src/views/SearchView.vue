@@ -16,7 +16,6 @@ const MAX_KEYWORD_LENGTH = 100
 const TYPES: SearchType[] = ['all', 'category', 'topic', 'question']
 const typeLabels: Record<SearchType, string> = { all: '全部', category: '分类', topic: '主题', question: '问题' }
 const kindLabels: Record<SearchKind, string> = { category: '知识分类', topic: '学习主题', question: '面试问题' }
-const kindActions: Record<SearchKind, string> = { category: '探索分类主题', topic: '浏览主题问题', question: '查看问题与答案' }
 const kindPaths: Record<SearchKind, string> = { category: '/categories', topic: '/topics', question: '/questions' }
 const suggestions = ['Vue', 'JavaScript', 'MySQL', 'Redis', '算法']
 
@@ -162,63 +161,47 @@ onBeforeUnmount(() => controller?.abort())
 
 <template>
   <div class="search-page">
-    <nav class="breadcrumbs" aria-label="面包屑导航">
-      <RouterLink to="/">首页</RouterLink>
-      <span aria-hidden="true">/</span>
-      <span>搜索结果</span>
-    </nav>
-
     <section class="search-hero" aria-labelledby="search-title">
-      <div class="hero-eyebrow">EXPLORE KNOWLEDGE · 知识检索</div>
-      <h1 id="search-title">探索你的下一步<span>知识成长</span></h1>
-      <p>搜索知识分类、学习主题、面试问题与答案；多个关键词用空格分隔，需同时命中。</p>
+      <h1 id="search-title">搜索题库</h1>
+      <p>支持分类、主题、问题及答案搜索；多个关键词用空格分隔。</p>
       <form class="search-form" role="search" @submit.prevent="submitSearch">
         <span class="search-symbol" aria-hidden="true">⌕</span>
         <input
           v-model="searchInput"
           type="search"
           aria-label="搜索知识内容"
-          placeholder="输入关键词，例如 Vue、Redis 持久化..."
+          placeholder="输入知识点或面试题"
           autocomplete="off"
           :maxlength="MAX_KEYWORD_LENGTH"
         />
-        <button type="submit" :disabled="loading && searchInput.trim() === keyword">搜索 <span aria-hidden="true">→</span></button>
+        <button type="submit" :disabled="loading && searchInput.trim() === keyword">搜索</button>
       </form>
       <div class="suggestions">
-        <span>热门搜索</span>
+        <span>试试</span>
         <button v-for="suggestion in suggestions" :key="suggestion" type="button" @click="searchSuggestion(suggestion)">
           {{ suggestion }}
         </button>
       </div>
     </section>
 
-    <section v-if="!keyword" class="message-panel" aria-labelledby="start-title">
-      <div class="message-icon" aria-hidden="true">⌕</div>
-      <h2 id="start-title">从一个关键词开始</h2>
-      <p>试试搜索技术名称、知识点或面试题，开启你的知识探索。</p>
-    </section>
-
-    <section v-else class="search-content" aria-labelledby="results-title">
+    <section v-if="keyword" class="search-content" aria-labelledby="results-title">
       <div class="result-heading">
         <div>
-          <div class="section-eyebrow">SEARCH RESULTS</div>
-          <h2 id="results-title">“{{ keyword }}” 的搜索结果</h2>
+          <h2 id="results-title">搜索结果</h2>
           <p aria-live="polite">
             <template v-if="showSkeleton">正在检索知识库...</template>
             <template v-else-if="errorMessage">暂时无法获取结果</template>
             <template v-else-if="result">
-              共找到 <strong>{{ result.counts.all }}</strong> 条相关内容
-              <span v-if="result.truncated" class="truncated-note">（结果较多，仅统计前若干条，建议补充关键词）</span>
+              “{{ keyword }}” · <strong>{{ result.counts.all }}</strong> 条
+              <span v-if="result.truncated" class="truncated-note">（结果较多，建议缩小范围）</span>
             </template>
           </p>
         </div>
-        <RouterLink to="/" class="home-link">返回首页 <span aria-hidden="true">↗</span></RouterLink>
       </div>
 
       <div v-if="showSkeleton" class="message-panel" role="status">
         <div class="loading-spinner" aria-hidden="true"></div>
-        <h3>正在搜索知识库</h3>
-        <p>正在查找分类、主题和问题，请稍候。</p>
+        <h3>搜索中…</h3>
       </div>
 
       <div v-else-if="errorMessage" class="message-panel" role="alert">
@@ -245,7 +228,7 @@ onBeforeUnmount(() => controller?.abort())
         <div v-if="!result.items.length" class="message-panel">
           <div class="message-icon" aria-hidden="true">◇</div>
           <h3>{{ result.counts.all ? '该类型下暂无匹配内容' : '没有找到相关内容' }}</h3>
-          <p>尝试更简短的关键词，或换一个技术名称继续搜索。</p>
+          <p>试试其他关键词。</p>
           <button v-if="result.counts.all" class="outline-button" type="button" @click="setType('all')">查看全部结果</button>
         </div>
 
@@ -272,10 +255,6 @@ onBeforeUnmount(() => controller?.abort())
                   <mark v-if="segment.hit">{{ segment.text }}</mark><span v-else>{{ segment.text }}</span>
                 </template>
               </p>
-              <div class="result-bottom">
-                <span>{{ kindActions[item.kind] }}</span>
-                <span aria-hidden="true">→</span>
-              </div>
             </RouterLink>
           </div>
 
@@ -378,4 +357,30 @@ mark { padding: 0 2px; border-radius: 3px; color: #4338ca; background: #e0e7ff; 
   .result-card, .result-list.refreshing { transition: none; }
   .loading-spinner { animation: none; }
 }
+
+/* 次要修饰让位于搜索框与结果。 */
+.search-hero { padding: 30px 34px 28px; border: 1px solid #e0e7f1; border-radius: 16px; background: #f5f8fe; }
+.search-hero::after { display: none; }
+.search-hero h1 { margin: 0 0 8px; font-size: 28px; }
+.search-hero > p { margin: 0 0 18px; font-size: 13px; line-height: 1.6; }
+.search-form { min-height: 54px; max-width: 700px; box-shadow: none; }
+.search-form button { background: #2563eb; }
+.search-form button:hover { background: #1d4ed8; }
+.suggestions { margin-top: 14px; }
+.search-content { padding-top: 28px; }
+.result-heading { margin-bottom: 18px; }
+.result-heading h2 { margin: 0 0 6px; font-size: 22px; }
+.filter-bar { margin-bottom: 12px; }
+.filter-button { padding: 8px 13px; }
+.filter-button.active { background: #2563eb; border-color: #2563eb; }
+.result-list { gap: 10px; }
+.result-card { padding: 18px 22px; border-radius: 12px; }
+.result-topline { margin-bottom: 8px; }
+.result-card h3 { margin-bottom: 7px; font-size: 16px; }
+.result-description { -webkit-line-clamp: 2; margin-bottom: 0; line-height: 1.65; }
+.message-panel { padding: 36px 20px; margin-top: 20px; }
+.message-icon { width: 42px; height: 42px; font-size: 24px; }
+.message-panel h3 { font-size: 17px; }
+@media (max-width: 640px) { .search-hero { padding: 24px 18px; } .search-hero h1 { font-size: 24px; } .search-form { min-height: 51px; } .search-content { padding-top: 24px; } .result-card { padding: 16px; } }
+
 </style>

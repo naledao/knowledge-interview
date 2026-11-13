@@ -17,10 +17,36 @@ function Get-TargetEmulator {
     }
     return $null
 }
+# 检测正在启动但尚未连接 ADB 的模拟器，避免重复创建实例。
+function Test-TargetEmulatorProcess {
+    $processes = @(Get-CimInstance Win32_Process -Filter "Name = 'emulator.exe'" -ErrorAction SilentlyContinue)
+    foreach ($process in $processes) {
+        if ($process.CommandLine -and $process.CommandLine.Contains($avdName) -and $process.CommandLine -match '(^|\s)-avd(\s|=)') {
+            return $true
+        }
+    }
+    return $false
+}
+
+# 通过 Windows 任务计划程序独立启动模拟器，避免 OpenIDEA 停止脚本时连带关闭模拟器。
+function Start-IndependentEmulator {
+    $taskName = 'KnowledgeInterview-Emulator-API34'
+    $userName = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+    $action = New-ScheduledTaskAction -Execute $emulator -Argument "-avd $avdName"
+    $principal = New-ScheduledTaskPrincipal -UserId $userName -LogonType Interactive -RunLevel Limited
+    $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+    Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Settings $settings -Force | Out-Null
+    Start-ScheduledTask -TaskName $taskName
+}
+
 $serial = Get-TargetEmulator
-if (-not $serial) {
-    Write-Output "Starting Android emulator: $avdName"
-    Start-Process -FilePath $emulator -ArgumentList @('-avd', $avdName)
+if ($serial) {
+    Write-Output "Reusing Android emulator: $serial ($avdName)"
+} elseif (Test-TargetEmulatorProcess) {
+    Write-Output "Android emulator is already starting: $avdName"
+} else {
+    Write-Output "Starting independent Android emulator: $avdName"
+    Start-IndependentEmulator
 }
 $deadline = (Get-Date).AddMinutes(5)
 while (-not $serial -and (Get-Date) -lt $deadline) {

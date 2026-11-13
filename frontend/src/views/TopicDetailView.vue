@@ -91,8 +91,7 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
 
     <section v-if="loading" class="state-panel" role="status">
       <span class="loading-spinner" aria-hidden="true"></span>
-      <h1>正在加载主题...</h1>
-      <p>正在获取主题介绍及相关问题。</p>
+      <h1>加载中…</h1>
     </section>
 
     <section v-else-if="errorMessage" class="state-panel" role="alert">
@@ -105,32 +104,27 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
     <section v-else-if="notFound" class="state-panel">
       <div class="state-symbol" aria-hidden="true">?</div>
       <h1>主题不存在</h1>
-      <p>主题可能已被删除，或当前链接的主题 ID 无效。</p>
+      <p>请返回首页查找其他主题。</p>
       <RouterLink class="primary-action" to="/">返回首页</RouterLink>
     </section>
 
     <template v-else-if="topic">
       <header class="topic-hero">
         <div class="hero-main">
-          <p class="eyebrow">KNOWLEDGE TOPIC</p>
           <h1>{{ topic.title }}</h1>
-          <MarkdownContent class="hero-description" size="compact" :source="topic.description || '围绕本主题系统学习相关问题，逐步巩固知识。'" />
+          <MarkdownContent v-if="topic.description" class="hero-description" size="compact" :source="topic.description" />
           <div class="hero-meta">
             <span class="meta-pill"><strong>{{ questionTotal }}</strong> 个相关问题</span>
             <RouterLink class="category-link" :to="`/categories/${topic.categoryId}`">返回分类 <span aria-hidden="true">↗</span></RouterLink>
           </div>
         </div>
-        <div class="hero-decoration" aria-hidden="true"><span>Q<span class="hero-amp">&</span>A</span></div>
       </header>
 
       <section class="questions-section" aria-labelledby="questions-heading">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">QUESTION LIBRARY</p>
             <h2 id="questions-heading">知识问题</h2>
-            <p class="section-description">选择问题，查看对应的知识内容与答案。</p>
           </div>
-          <span class="question-count">共 {{ questionTotal }} 题</span>
         </div>
 
         <ol v-if="sortedQuestions.length" class="question-list">
@@ -139,7 +133,6 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
               <span class="question-number">{{ String((questionPage - 1) * 6 + index + 1).padStart(2, '0') }}</span>
               <span class="question-main">
                 <strong>{{ question.questionText }}</strong>
-                <span class="question-hint">查看问题详情</span>
               </span>
               <span class="question-arrow" aria-hidden="true">↗</span>
             </RouterLink>
@@ -149,7 +142,6 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
         <div v-else class="empty-state">
           <div class="empty-symbol" aria-hidden="true">◇</div>
           <h3>暂无问题</h3>
-          <p>当前主题尚未收录问题，可以返回分类浏览其他主题。</p>
           <RouterLink class="return-link" :to="`/categories/${topic.categoryId}`">浏览其他主题 →</RouterLink>
         </div>
         <ListPagination :page-num='questionPage' :pages='questionPages' :loading='loading' @change='changeQuestionPage' />
@@ -217,4 +209,10 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
   .question-card:hover { transform: none; }
   .loading-spinner { animation: none; }
 }
+
+.topic-hero { padding: 30px 36px; border-radius: 16px; background: #f7f8fd; }
+.topic-hero h1 { font-size: clamp(26px, 3vw, 34px); }
+.section-heading h2 { font-size: 22px; }
+@media (max-width: 640px) { .topic-hero { padding: 24px 20px; } }
+
 </style>

@@ -96,8 +96,7 @@ watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
 
     <section v-if='loading' class='state-panel' role='status'>
       <span class='loading-spinner' aria-hidden='true'></span>
-      <h1>正在加载问题...</h1>
-      <p>正在获取问题内容及对应答案。</p>
+      <h1>加载中…</h1>
     </section>
 
     <section v-else-if='errorMessage' class='state-panel' role='alert'>
@@ -110,16 +109,12 @@ watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
     <section v-else-if='notFound' class='state-panel'>
       <div class='state-symbol' aria-hidden='true'>?</div>
       <h1>问题不存在</h1>
-      <p>该问题可能已被删除，或访问链接中的问题 ID 无效。</p>
+      <p>请返回主题查看其他问题。</p>
       <RouterLink to='/' class='primary-action'>返回首页</RouterLink>
     </section>
 
     <template v-else-if='question'>
       <header class='question-hero'>
-        <div class='hero-header'>
-          <span class='eyebrow'>KNOWLEDGE QUESTION</span>
-          <span class='progress-pill'>知识问题</span>
-        </div>
         <h1>{{ question.questionText }}</h1>
         <div class='hero-footer'>
           <span class='topic-label'>{{ topic?.title || '知识问题' }}</span>
@@ -130,7 +125,6 @@ watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
       <section class='answer-section' aria-labelledby='answer-heading'>
         <div class='answer-heading'>
           <div>
-            <span class='eyebrow'>REFERENCE ANSWER</span>
             <h2 id='answer-heading'>参考答案</h2>
           </div>
           <button v-if='answerText' class='answer-toggle' type='button' :aria-expanded='showAnswer' aria-controls='answer-content' @click='showAnswer = !showAnswer'>
@@ -141,32 +135,21 @@ watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
           <p v-if='!answerText' class='empty-answer'>该问题尚未添加参考答案。</p>
           <HtmlAnswerRenderer v-else-if='showAnswer && answerIsHtml' :source='answerText' />
           <MarkdownContent v-else-if='showAnswer' class='answer-text' :source='answerText' />
-          <p v-else class='hidden-answer'>答案已收起，点击“展开答案”继续阅读。</p>
+          <p v-else class='hidden-answer'>答案已收起</p>
         </div>
       </section>
 
-      <nav class='question-navigation' aria-label='题目切换'>
+      <nav v-if='previousQuestion || nextQuestion' class='question-navigation' aria-label='题目切换'>
         <RouterLink v-if='previousQuestion' class='nav-card' :to='`/questions/${previousQuestion.id}`'>
           <span class='nav-direction'>← 上一题</span>
           <strong>{{ previousQuestion.questionText }}</strong>
         </RouterLink>
-        <div v-else class='nav-card nav-disabled' aria-disabled='true'>
-          <span class='nav-direction'>← 上一题</span>
-          <strong>已经是本主题的第一题</strong>
-        </div>
         <RouterLink v-if='nextQuestion' class='nav-card nav-next' :to='`/questions/${nextQuestion.id}`'>
           <span class='nav-direction'>下一题 →</span>
           <strong>{{ nextQuestion.questionText }}</strong>
         </RouterLink>
-        <div v-else class='nav-card nav-next nav-disabled' aria-disabled='true'>
-          <span class='nav-direction'>下一题 →</span>
-          <strong>已经是本主题的最后一题</strong>
-        </div>
       </nav>
 
-      <div class='back-row'>
-        <RouterLink :to='`/topics/${question.topicId}`'>← 返回问题列表</RouterLink>
-      </div>
     </template>
   </div>
 </template>
@@ -227,4 +210,10 @@ watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
   .nav-card:not(.nav-disabled):hover { transform: none; }
   .loading-spinner { animation: none; }
 }
+
+.question-hero { padding: 28px 36px; border-radius: 16px; background: #f5f8fe; }
+.question-hero h1 { margin: 0 0 20px; font-size: clamp(23px, 3vw, 31px); line-height: 1.5; }
+.answer-section { margin-top: 30px; }
+@media (max-width: 640px) { .question-hero { padding: 24px 20px; } .question-hero h1 { margin: 0 0 16px; font-size: 22px; } }
+
 </style>

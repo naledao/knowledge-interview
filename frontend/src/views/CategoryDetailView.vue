@@ -85,8 +85,7 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
 
     <section v-if='loading' class='state-panel' role='status'>
       <span class='loading-spinner' aria-hidden='true'></span>
-      <h1>正在加载分类...</h1>
-      <p>正在获取分类信息与学习主题。</p>
+      <h1>加载中…</h1>
     </section>
 
     <section v-else-if='errorMessage' class='state-panel' role='alert'>
@@ -99,35 +98,27 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
     <section v-else-if='notFound' class='state-panel'>
       <div class='state-symbol' aria-hidden='true'>?</div>
       <h1>分类不存在</h1>
-      <p>该分类可能已被删除，或访问链接中的分类 ID 无效。</p>
+      <p>请返回首页查找其他分类。</p>
       <RouterLink to='/' class='primary-action'>返回首页</RouterLink>
     </section>
 
     <template v-else-if='category'>
       <header class='category-hero'>
         <div class='hero-content'>
-          <p class='eyebrow'>KNOWLEDGE CATEGORY</p>
           <h1>{{ category.name }}</h1>
-          <MarkdownContent class='category-description' size='compact' :source="category.description || '浏览该分类下的知识主题，循序渐进地展开学习。'" />
+          <MarkdownContent v-if='category.description' class='category-description' size='compact' :source='category.description' />
           <div class='hero-summary'>
             <strong>{{ topicTotal }}</strong>
             <span>个学习主题</span>
           </div>
-        </div>
-        <div class='hero-art' aria-hidden='true'>
-          <span class='art-circle art-circle-back'></span>
-          <span class='art-circle art-circle-front'>◎</span>
         </div>
       </header>
 
       <section class='topics-section' aria-labelledby='topics-heading'>
         <div class='section-heading'>
           <div>
-            <p class='eyebrow section-eyebrow'>EXPLORE TOPICS</p>
             <h2 id='topics-heading'>学习主题</h2>
-            <p class='section-description'>选择一个主题，进一步探索相关知识与问题。</p>
           </div>
-          <span class='topic-count'>共 {{ topicTotal }} 项</span>
         </div>
 
         <div v-if='topicTotal' class='topic-grid'>
@@ -142,18 +133,13 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
               <span class='card-arrow' aria-hidden='true'>↗</span>
             </div>
             <h3>{{ topic.title }}</h3>
-            <p class='topic-description'>{{ markdownToPlainText(topic.description) || '查看这个主题下的知识内容与相关问题。' }}</p>
-            <div class='topic-card-footer'>
-              <span>查看主题</span>
-              <span aria-hidden='true'>→</span>
-            </div>
+            <p v-if='topic.description' class='topic-description'>{{ markdownToPlainText(topic.description) }}</p>
           </RouterLink>
         </div>
 
         <div v-else class='empty-state'>
           <div class='empty-symbol' aria-hidden='true'>◇</div>
           <h3>暂无学习主题</h3>
-          <p>当前分类还没有添加主题，可以先浏览其他知识分类。</p>
           <RouterLink to='/' class='home-link'>浏览其他分类 →</RouterLink>
         </div>
         <ListPagination :page-num='topicPage' :pages='topicPages' :loading='loading' @change='changeTopicPage' />
@@ -222,4 +208,11 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
   .topic-card:hover { transform: none; }
   .loading-spinner { animation: none; }
 }
+
+/* 用真实分类内容替代大幅装饰与重复导语。 */
+.category-hero { padding: 30px 36px; border-radius: 16px; background: #f5f8fe; }
+.category-hero h1 { font-size: clamp(26px, 3vw, 34px); }
+.section-heading h2 { font-size: 22px; }
+@media (max-width: 640px) { .category-hero { padding: 24px 20px; } }
+
 </style>
