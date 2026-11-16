@@ -29,10 +29,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-/** 检查后端代理的私有 GitHub Release，并下载、校验 APK 后交给系统安装。 */
+/** 直接从 GitHub Release 获取最新 Android 版本并下载、校验 APK 后交给系统安装。 */
 final class AppUpdater {
     private static final String TAG = "AppUpdater";
-    private static final String UPDATE_PATH = "/api/app-updates";
+    private static final String GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/naledao/knowledge-interview/releases/latest";
     private static final String APK_MIME = "application/vnd.android.package-archive";
     private static final long MAX_APK_BYTES = 100L * 1024 * 1024;
     private final Activity activity;
@@ -60,7 +60,6 @@ final class AppUpdater {
             if (manual) message("正在下载更新，请稍候");
             return;
         }
-        // 自动检查尚未结束时，手动点击复用该请求，不重复访问服务器。
         if (!checking.compareAndSet(false, true)) {
             if (manual) {
                 manualCheckRequested = true;
@@ -70,53 +69,33 @@ final class AppUpdater {
         }
         manualCheckRequested = manual;
         if (manual) showChecking();
+        if (activeCheckProgress != null) activeCheckProgress.update("正在查询 GitHub 最新版本…", -1);
         try {
-            webView.evaluateJavascript("localStorage.getItem('knowledge-interview-api-key')", raw -> {
-                String apiKey = "";
+            executor.execute(() -> {
                 try {
-                    apiKey = new JSONArray("[" + raw + "]").optString(0, "");
-                } catch (Exception ignored) {
-                    // 尚未配置 API Key 时正常结束加载，并提示用户。
-                }
-                if (apiKey == null || apiKey.isBlank()) {
-                    finishCheck(null, 0, null, null, "请先在密钥设置中保存 API Key");
-                    return;
-                }
-                final String key = apiKey;
-                final String backend = activity.getSharedPreferences("backend_settings", Activity.MODE_PRIVATE)
-                        .getString("backend_address", "http://frp.kangnasi.xyz:9881");
-                if (activeCheckProgress != null) activeCheckProgress.update("正在查询最新版本…", -1);
-                try {
-                    executor.execute(() -> {
-                        try {
-                            Latest latest = fetchLatest(backend, key);
-                            long installed = installedVersion();
-                            finishCheck(latest, installed, backend, key, null);
-                        } catch (Exception error) {
-                            Log.w(TAG, "检查更新失败", error);
-                            finishCheck(null, 0, null, null, "检查更新失败，请确认服务器地址、API Key 和网络连接");
-                        }
-                    });
-                } catch (RuntimeException error) {
-                    Log.w(TAG, "无法启动更新检查", error);
-                    finishCheck(null, 0, null, null, "无法启动更新检查，请稍后重试");
+                    Latest latest = fetchLatest();
+                    long installed = installedVersion();
+                    finishCheck(latest, installed, null);
+                } catch (Exception error) {
+                    Log.w(TAG, "检查更新失败", error);
+                    finishCheck(null, 0, "检查更新失败：" + error.getMessage());
                 }
             });
         } catch (RuntimeException error) {
-            Log.w(TAG, "无法读取更新检查凭据", error);
-            finishCheck(null, 0, null, null, "检查更新失败，请稍后重试");
+            Log.w(TAG, "无法启动更新检查", error);
+            finishCheck(null, 0, "无法启动更新检查，请稍后重试");
         }
     }
 
     /** 进入检查流程时立即展示持续加载卡片，直到检查完成才关闭。 */
     private void showChecking() {
         if (activeCheckProgress != null || activity.isFinishing() || activity.isDestroyed()) return;
-        activeCheckProgress = UpdateDialogs.busy(activity, "正在检查更新", "正在获取最新版本信息", null);
-        activeCheckProgress.update("正在连接更新服务器…", -1);
+        activeCheckProgress = UpdateDialogs.busy(activity, "正在检查更新", "正在获取 GitHub 最新版本信息", null);
+        activeCheckProgress.update("正在连接 GitHub Release…", -1);
     }
 
-    /** 请求成功、失败或缺少密钥时统一收尾，先关闭加载卡片再呈现结果。 */
-    private void finishCheck(Latest latest, long installed, String backend, String key, String errorMessage) {
+    /** 请求成功或失败时统一收尾，先关闭加载卡片再呈现结果。 */
+    private void finishCheck(Latest latest, long installed, String errorMessage) {
         activity.runOnUiThread(() -> {
             boolean manual = manualCheckRequested;
             manualCheckRequested = false;
@@ -129,69 +108,118 @@ final class AppUpdater {
             if (errorMessage != null) {
                 if (manual) message(errorMessage);
             } else if (latest != null && latest.code > installed) {
-                askToUpdate(latest, backend, key);
+                askToUpdate(latest);
             } else if (manual) {
                 message("已经是最新版本（" + installedVersionName() + "）");
             }
         });
     }
-    private Latest fetchLatest(String backend, String key) throws Exception {
-        HttpURLConnection connection = open(activity, backend + UPDATE_PATH + "/latest", key);
+
+    private Latest fetchLatest() throws Exception {
+        HttpURLConnection connection = openFollowingRedirects(activity, GITHUB_LATEST_RELEASE_API, "application/vnd.github+json");
         try {
-            if (connection.getResponseCode() != 200) throw new IllegalStateException("更新接口 HTTP " + connection.getResponseCode());
+            int status = connection.getResponseCode();
+            if (status != 200) {
+                throw new IllegalStateException("GitHub Release 接口 HTTP " + status);
+            }
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             try (InputStream input = connection.getInputStream()) {
                 byte[] buffer = new byte[4096];
                 int n;
                 while ((n = input.read(buffer)) != -1) {
-                    if (bytes.size() + n > 16384) throw new IllegalStateException("更新元数据过大");
+                    if (bytes.size() + n > 262144) throw new IllegalStateException("Release 元数据过大");
                     bytes.write(buffer, 0, n);
                 }
             }
             JSONObject json = new JSONObject(new String(bytes.toByteArray(), StandardCharsets.UTF_8));
-            Latest latest = new Latest(json.getString("versionName"), json.getLong("versionCode"),
-                    json.getLong("size"), json.getString("sha256"));
-            if (!latest.name.matches("1[.]0[.][0-9]+") || latest.code < 1
-                    || latest.size < 1 || latest.size > MAX_APK_BYTES
-                    || !latest.sha256.matches("[0-9a-fA-F]{64}")) {
-                throw new IllegalStateException("更新元数据不合法");
+            String tagName = json.optString("tag_name", "");
+            if (!tagName.matches("android-v1[.]0[.][0-9]+")) {
+                throw new IllegalStateException("未找到有效的 Android Release 标签: " + tagName);
             }
-            return latest;
+            String versionName = tagName.substring("android-v".length());
+            int patch = Integer.parseInt(versionName.substring("1.0.".length()));
+            long versionCode = patch + 1L;
+
+            String expectedAssetName = "KnowledgeInterview-v" + versionName + ".apk";
+            JSONArray assets = json.optJSONArray("assets");
+            String downloadUrl = null;
+            long size = -1;
+            String sha256 = null;
+            if (assets != null) {
+                for (int i = 0; i < assets.length(); i++) {
+                    JSONObject asset = assets.optJSONObject(i);
+                    if (asset == null) continue;
+                    String assetName = asset.optString("name", "");
+                    if (expectedAssetName.equals(assetName) || assetName.endsWith(".apk")) {
+                        downloadUrl = asset.optString("browser_download_url", "");
+                        size = asset.optLong("size", -1);
+                        String digest = asset.optString("digest", "");
+                        if (digest.startsWith("sha256:")) {
+                            sha256 = digest.substring("sha256:".length()).trim();
+                        }
+                        if (expectedAssetName.equals(assetName)) break;
+                    }
+                }
+            }
+            if (downloadUrl == null || !downloadUrl.startsWith("https://") || size < 1 || size > MAX_APK_BYTES) {
+                throw new IllegalStateException("Release 中缺少有效的 APK 安装包资产");
+            }
+            return new Latest(versionName, versionCode, size, sha256, downloadUrl);
         } finally {
             connection.disconnect();
         }
     }
 
-    private static HttpURLConnection open(Activity activity, String address, String key) throws Exception {
-        HttpURLConnection connection = TrojanProxyManager.openConnection(activity, new URL(address));
-        connection.setRequestMethod("GET");
-        connection.setInstanceFollowRedirects(false);
-        connection.setConnectTimeout(8000);
-        connection.setReadTimeout(30000);
-        connection.setRequestProperty("Authorization", "Bearer " + key);
-        connection.setRequestProperty("Accept", "application/json, application/vnd.android.package-archive");
-        return connection;
+    private static HttpURLConnection openFollowingRedirects(Activity activity, String startUrl, String accept) throws Exception {
+        String currentUrl = startUrl;
+        for (int redirects = 0; redirects < 6; redirects++) {
+            URL url = new URL(currentUrl);
+            HttpURLConnection connection = TrojanProxyManager.openConnection(activity, url);
+            connection.setRequestMethod("GET");
+            connection.setInstanceFollowRedirects(false);
+            connection.setConnectTimeout(10000);
+            connection.setReadTimeout(30000);
+            connection.setRequestProperty("User-Agent", "KnowledgeInterviewAndroid/1.0");
+            if (accept != null && !accept.isEmpty()) {
+                connection.setRequestProperty("Accept", accept);
+            }
+            int code = connection.getResponseCode();
+            if (code == HttpURLConnection.HTTP_MOVED_PERM
+                    || code == HttpURLConnection.HTTP_MOVED_TEMP
+                    || code == HttpURLConnection.HTTP_SEE_OTHER
+                    || code == 307 || code == 308) {
+                String location = connection.getHeaderField("Location");
+                connection.disconnect();
+                if (location == null || location.isEmpty()) {
+                    throw new IllegalStateException("GitHub 下载重定向缺少 Location");
+                }
+                currentUrl = new URL(url, location).toString();
+                continue;
+            }
+            return connection;
+        }
+        throw new IllegalStateException("GitHub 下载重定向次数过多");
     }
 
     /** 使用与应用一致的蓝白圆角卡片提示更新。 */
-    private void askToUpdate(Latest latest, String backend, String key) {
+    private void askToUpdate(Latest latest) {
         if (downloading.get()) return;
         UpdateDialogs.confirm(activity, installedVersionName(), latest.name,
-                () -> download(latest, backend, key));
+                () -> download(latest));
     }
 
     /** 用户确认后持续显示加载状态，直到网络下载和安装包校验真正结束。 */
-    private void download(Latest latest, String backend, String key) {
+    private void download(Latest latest) {
         if (!downloading.compareAndSet(false, true)) return;
         cancelled.set(false);
         UpdateDialogs.Busy progress = UpdateDialogs.busy(activity,
-                "正在更新 v" + latest.name, "下载并校验安全安装包", () -> cancelled.set(true));
+                "正在更新 v" + latest.name, "从 GitHub Release 下载并校验安装包", () -> cancelled.set(true));
         activeProgress = progress;
-        progress.update("正在连接更新服务器…", -1);
+        progress.update("正在连接 GitHub 下载服务器…", -1);
         executor.execute(() -> {
             File staging = new File(activity.getCacheDir(), "app-update.part");
             try {
-                downloadAndVerify(latest, backend, key, staging, progress);
+                downloadAndVerify(latest, staging, progress);
                 if (cancelled.get()) return;
                 File apk = new File(activity.getCacheDir(), "app-update.apk");
                 if (apk.exists() && !apk.delete()) throw new IllegalStateException("无法清理旧安装包");
@@ -218,16 +246,17 @@ final class AppUpdater {
             }
         });
     }
-    /** 下载时校验文件长度和 SHA-256，安装前还必须比对应用包名与签名证书。 */
-    private void downloadAndVerify(Latest latest, String backend, String key, File staging,
-                                   UpdateDialogs.Busy progress) throws Exception {
-        String url = backend + UPDATE_PATH + "/download?version=" + latest.name;
-        HttpURLConnection connection = open(activity, url, key);
+
+    /** 下载时校验文件长度和 SHA-256（若提供），安装前还必须比对应用包名与签名证书。 */
+    private void downloadAndVerify(Latest latest, File staging, UpdateDialogs.Busy progress) throws Exception {
+        HttpURLConnection connection = openFollowingRedirects(activity, latest.downloadUrl, "application/octet-stream");
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         long bytes = 0;
         int lastPercent = -1;
         try {
-            if (connection.getResponseCode() != 200) throw new IllegalStateException("APK 下载 HTTP " + connection.getResponseCode());
+            if (connection.getResponseCode() != 200) {
+                throw new IllegalStateException("APK 下载 HTTP " + connection.getResponseCode());
+            }
             try (InputStream input = connection.getInputStream(); FileOutputStream output = new FileOutputStream(staging)) {
                 byte[] buffer = new byte[65536];
                 int n;
@@ -251,9 +280,13 @@ final class AppUpdater {
         if (cancelled.get()) return;
         activity.runOnUiThread(() -> progress.update("下载完成，正在校验安装包…", -1));
         if (bytes != latest.size) throw new IllegalStateException("安装包未完整下载");
-        StringBuilder sha = new StringBuilder(64);
-        for (byte b : digest.digest()) sha.append(String.format(Locale.ROOT, "%02x", b & 255));
-        if (!latest.sha256.equalsIgnoreCase(sha.toString())) throw new IllegalStateException("安装包 SHA-256 校验失败");
+        if (latest.sha256 != null && latest.sha256.matches("[0-9a-fA-F]{64}")) {
+            StringBuilder sha = new StringBuilder(64);
+            for (byte b : digest.digest()) sha.append(String.format(Locale.ROOT, "%02x", b & 255));
+            if (!latest.sha256.equalsIgnoreCase(sha.toString())) {
+                throw new IllegalStateException("安装包 SHA-256 校验失败");
+            }
+        }
         verifyPackage(staging, latest.code);
     }
 
@@ -358,12 +391,14 @@ final class AppUpdater {
         final long code;
         final long size;
         final String sha256;
+        final String downloadUrl;
 
-        Latest(String name, long code, long size, String sha256) {
+        Latest(String name, long code, long size, String sha256, String downloadUrl) {
             this.name = name;
             this.code = code;
             this.size = size;
             this.sha256 = sha256;
+            this.downloadUrl = downloadUrl;
         }
     }
 }
