@@ -47,17 +47,14 @@ public class MainActivity extends Activity {
     private WebView webView;
     private AppUpdater appUpdater;
     private boolean initialUpdateChecked;
-    private static final int REQ_VPN_PREPARE = 9001;
-    private static final String SINGBOX_CONFIG_KEY = "singbox_config_json";
-    private static final String SINGBOX_LOCAL_PORT_KEY = "singbox_local_port";
-    private static final int DEFAULT_SINGBOX_PORT = 7897;
-    private String pendingSingBoxConfig;
+    
 
     @Override
     @SuppressLint("SetJavaScriptEnabled")
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         appUpdater = new AppUpdater(this);
+        TrojanProxyManager.ensureStartedIfEnabled(this);
         webView = new WebView(this);
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -94,7 +91,7 @@ public class MainActivity extends Activity {
                         return true;
                     }
                     if ("/proxy".equals(uri.getPath())) {
-                        showSingBoxProxyDialog();
+                        showTrojanProxyDialog();
                         return true;
                     }
                 }
@@ -122,56 +119,8 @@ public class MainActivity extends Activity {
                 .getString(BACKEND_ADDRESS_KEY, DEFAULT_BACKEND);
     }
 
-    public void startSingBox(String configJson) {
-        try {
-            io.nekohasekai.libbox.Libbox.checkConfig(configJson);
-            if (io.nekohasekai.libbox.Libbox.hasTunInbound(configJson)) {
-                android.content.Intent prepareIntent = android.net.VpnService.prepare(this);
-                if (prepareIntent != null) {
-                    pendingSingBoxConfig = configJson;
-                    startActivityForResult(prepareIntent, REQ_VPN_PREPARE);
-                    return;
-                }
-            }
-            launchSingBoxService(configJson);
-        } catch (Exception e) {
-            Toast.makeText(this, "sing-box 配置错误: " + e.getMessage(), Toast.LENGTH_LONG).show();
-        }
-    }
-
-    public void stopSingBox() {
-        android.content.Intent intent = new android.content.Intent(this, SingBoxVpnService.class);
-        intent.setAction(SingBoxVpnService.ACTION_STOP);
-        startService(intent);
-        Toast.makeText(this, "已停止 sing-box 服务", Toast.LENGTH_SHORT).show();
-    }
-
-    private void launchSingBoxService(String configJson) {
-        android.content.Intent intent = new android.content.Intent(this, SingBoxVpnService.class);
-        intent.setAction(SingBoxVpnService.ACTION_START);
-        intent.putExtra(SingBoxVpnService.EXTRA_CONFIG_JSON, configJson);
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            startForegroundService(intent);
-        } else {
-            startService(intent);
-        }
-        Toast.makeText(this, "正在启动 sing-box 服务", Toast.LENGTH_SHORT).show();
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQ_VPN_PREPARE && resultCode == RESULT_OK && pendingSingBoxConfig != null) {
-            String cfg = pendingSingBoxConfig;
-            pendingSingBoxConfig = null;
-            launchSingBoxService(cfg);
-        }
-    }
-
-    private void showSingBoxProxyDialog() {
-        android.content.SharedPreferences prefs = getSharedPreferences(SETTINGS_FILE, MODE_PRIVATE);
-        String savedConfig = prefs.getString(SINGBOX_CONFIG_KEY, "");
-        int savedPort = prefs.getInt(SINGBOX_LOCAL_PORT_KEY, DEFAULT_SINGBOX_PORT);
+    private void showTrojanProxyDialog() {
+        TrojanProxyManager.Config cfg = TrojanProxyManager.loadConfig(this);
 
         Dialog dialog = new Dialog(this);
         LinearLayout card = new LinearLayout(this);
@@ -180,57 +129,81 @@ public class MainActivity extends Activity {
         card.setBackground(dialogShape(Color.WHITE, 20, Color.TRANSPARENT));
 
         TextView title = new TextView(this);
-        title.setText("sing-box 代理设置");
+        title.setText("Trojan 内置代理设置");
         title.setTextSize(19);
         title.setTypeface(null, Typeface.BOLD);
         title.setTextColor(Color.rgb(15, 23, 42));
         card.addView(title);
 
         TextView statusView = new TextView(this);
-        boolean active = SingBoxVpnService.isRunning();
-        String err = SingBoxVpnService.getLastError();
-        statusView.setText(active ? "状态：运行中" : (err != null ? "状态：启动失败 (" + err + ")" : "状态：未启动"));
+        boolean active = cfg.enabled && TrojanProxyManager.isRunning();
+        String err = TrojanProxyManager.getLastError();
+        statusView.setText(active ? "状态：已启用（纯 Java TLS 直连，证书校验开启）"
+                : (err != null ? "状态：未启动 (" + err + ")" : "状态：未启用（当前直连后端）"));
         statusView.setTextSize(12);
         statusView.setTextColor(active ? Color.rgb(22, 163, 74) : Color.rgb(100, 116, 139));
         LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(-1, -2);
         statusParams.topMargin = dp(4);
         card.addView(statusView, statusParams);
 
+        EditText serverInput = new EditText(this);
+        serverInput.setSingleLine(true);
+        serverInput.setTextSize(14);
+        serverInput.setTextColor(Color.rgb(30, 41, 59));
+        serverInput.setHint("服务器地址（默认 38.49.42.56）");
+        serverInput.setText(cfg.server);
+        serverInput.setPadding(dp(13), 0, dp(13), 0);
+        serverInput.setBackground(dialogShape(Color.rgb(248, 250, 252), 11, Color.rgb(203, 213, 225)));
+        LinearLayout.LayoutParams serverParams = new LinearLayout.LayoutParams(-1, dp(46));
+        serverParams.topMargin = dp(14);
+        card.addView(serverInput, serverParams);
+
         EditText portInput = new EditText(this);
         portInput.setSingleLine(true);
         portInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         portInput.setTextSize(14);
         portInput.setTextColor(Color.rgb(30, 41, 59));
-        portInput.setHint("本地 Mixed/HTTP 端口（默认 7897）");
-        portInput.setText(String.valueOf(savedPort));
+        portInput.setHint("端口（默认 9443）");
+        portInput.setText(String.valueOf(cfg.port));
         portInput.setPadding(dp(13), 0, dp(13), 0);
         portInput.setBackground(dialogShape(Color.rgb(248, 250, 252), 11, Color.rgb(203, 213, 225)));
         LinearLayout.LayoutParams portParams = new LinearLayout.LayoutParams(-1, dp(46));
-        portParams.topMargin = dp(16);
+        portParams.topMargin = dp(10);
         card.addView(portInput, portParams);
 
-        EditText configInput = new EditText(this);
-        configInput.setTextSize(13);
-        configInput.setTextColor(Color.rgb(30, 41, 59));
-        configInput.setHint("粘贴 sing-box config.json 内容");
-        configInput.setMinLines(6);
-        configInput.setMaxLines(10);
-        configInput.setGravity(Gravity.TOP | Gravity.START);
-        configInput.setText(savedConfig);
-        configInput.setPadding(dp(13), dp(10), dp(13), dp(10));
-        configInput.setBackground(dialogShape(Color.rgb(248, 250, 252), 11, Color.rgb(203, 213, 225)));
-        LinearLayout.LayoutParams cfgParams = new LinearLayout.LayoutParams(-1, -2);
-        cfgParams.topMargin = dp(12);
-        card.addView(configInput, cfgParams);
+        EditText passInput = new EditText(this);
+        passInput.setSingleLine(true);
+        passInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        passInput.setTextSize(14);
+        passInput.setTextColor(Color.rgb(30, 41, 59));
+        passInput.setHint("Trojan 密码");
+        passInput.setText(cfg.password);
+        passInput.setPadding(dp(13), 0, dp(13), 0);
+        passInput.setBackground(dialogShape(Color.rgb(248, 250, 252), 11, Color.rgb(203, 213, 225)));
+        LinearLayout.LayoutParams passParams = new LinearLayout.LayoutParams(-1, dp(46));
+        passParams.topMargin = dp(10);
+        card.addView(passInput, passParams);
+
+        EditText sniInput = new EditText(this);
+        sniInput.setSingleLine(true);
+        sniInput.setTextSize(14);
+        sniInput.setTextColor(Color.rgb(30, 41, 59));
+        sniInput.setHint("TLS SNI（默认 38.49.42.56）");
+        sniInput.setText(cfg.sni);
+        sniInput.setPadding(dp(13), 0, dp(13), 0);
+        sniInput.setBackground(dialogShape(Color.rgb(248, 250, 252), 11, Color.rgb(203, 213, 225)));
+        LinearLayout.LayoutParams sniParams = new LinearLayout.LayoutParams(-1, dp(46));
+        sniParams.topMargin = dp(10);
+        card.addView(sniInput, sniParams);
 
         LinearLayout actions = new LinearLayout(this);
         actions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
 
         TextView secondaryBtn = new TextView(this);
-        secondaryBtn.setText(active ? "停止服务" : "取消");
+        secondaryBtn.setText(cfg.enabled ? "停用代理" : "取消");
         secondaryBtn.setTextSize(14);
         secondaryBtn.setTypeface(null, Typeface.BOLD);
-        secondaryBtn.setTextColor(active ? Color.rgb(220, 38, 38) : Color.rgb(71, 85, 105));
+        secondaryBtn.setTextColor(cfg.enabled ? Color.rgb(220, 38, 38) : Color.rgb(71, 85, 105));
         secondaryBtn.setGravity(Gravity.CENTER);
         secondaryBtn.setBackground(dialogShape(Color.rgb(241, 245, 249), 10, Color.TRANSPARENT));
         LinearLayout.LayoutParams secParams = new LinearLayout.LayoutParams(dp(92), dp(44));
@@ -238,7 +211,7 @@ public class MainActivity extends Activity {
         actions.addView(secondaryBtn, secParams);
 
         TextView saveBtn = new TextView(this);
-        saveBtn.setText("保存并启动");
+        saveBtn.setText("保存并启用");
         saveBtn.setTextSize(14);
         saveBtn.setTypeface(null, Typeface.BOLD);
         saveBtn.setTextColor(Color.WHITE);
@@ -251,25 +224,35 @@ public class MainActivity extends Activity {
         card.addView(actions, actionsParams);
 
         secondaryBtn.setOnClickListener(v -> {
-            if (SingBoxVpnService.isRunning()) {
-                stopSingBox();
+            if (cfg.enabled) {
+                TrojanProxyManager.stop(this);
+                Toast.makeText(this, "已停用内置 Trojan 代理", Toast.LENGTH_SHORT).show();
             }
             dialog.dismiss();
         });
         saveBtn.setOnClickListener(v -> {
-            String json = configInput.getText().toString().trim();
-            int port = DEFAULT_SINGBOX_PORT;
+            String server = serverInput.getText().toString().trim();
+            int port = TrojanProxyManager.DEFAULT_PORT;
             try {
                 port = Integer.parseInt(portInput.getText().toString().trim());
             } catch (NumberFormatException ignored) {
             }
-            prefs.edit()
-                    .putString(SINGBOX_CONFIG_KEY, json)
-                    .putInt(SINGBOX_LOCAL_PORT_KEY, port)
-                    .apply();
+            String password = passInput.getText().toString().trim();
+            String sni = sniInput.getText().toString().trim();
+            TrojanProxyManager.Config next = new TrojanProxyManager.Config(
+                    true,
+                    server.isEmpty() ? TrojanProxyManager.DEFAULT_SERVER : server,
+                    port,
+                    password.isEmpty() ? TrojanProxyManager.DEFAULT_PASSWORD : password,
+                    sni.isEmpty() ? TrojanProxyManager.DEFAULT_SNI : sni
+            );
+            TrojanProxyManager.saveConfig(this, next);
+            TrojanProxyManager.start(next);
             dialog.dismiss();
-            if (!json.isEmpty()) {
-                startSingBox(json);
+            if (TrojanProxyManager.isRunning()) {
+                Toast.makeText(this, "内置 Trojan 代理已启用", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "启动失败: " + TrojanProxyManager.getLastError(), Toast.LENGTH_LONG).show();
             }
         });
 
@@ -468,16 +451,7 @@ public class MainActivity extends Activity {
         HttpURLConnection connection = null;
         try {
             URL targetUrl = new URL(endpoint);
-            if (SingBoxVpnService.isRunning()) {
-                int localPort = getSharedPreferences(SETTINGS_FILE, MODE_PRIVATE)
-                        .getInt(SINGBOX_LOCAL_PORT_KEY, DEFAULT_SINGBOX_PORT);
-                java.net.Proxy proxy = new java.net.Proxy(
-                        java.net.Proxy.Type.HTTP,
-                        new java.net.InetSocketAddress("127.0.0.1", localPort));
-                connection = (HttpURLConnection) targetUrl.openConnection(proxy);
-            } else {
-                connection = (HttpURLConnection) targetUrl.openConnection();
-            }
+            connection = TrojanProxyManager.openConnection(this, targetUrl);
             connection.setRequestMethod("GET");
             connection.setInstanceFollowRedirects(false);
             connection.setConnectTimeout(4000);

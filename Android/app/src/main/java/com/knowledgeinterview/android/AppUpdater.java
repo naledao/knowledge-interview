@@ -136,7 +136,7 @@ final class AppUpdater {
         });
     }
     private Latest fetchLatest(String backend, String key) throws Exception {
-        HttpURLConnection connection = open(backend + UPDATE_PATH + "/latest", key);
+        HttpURLConnection connection = open(activity, backend + UPDATE_PATH + "/latest", key);
         try {
             if (connection.getResponseCode() != 200) throw new IllegalStateException("更新接口 HTTP " + connection.getResponseCode());
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
@@ -162,8 +162,8 @@ final class AppUpdater {
         }
     }
 
-    private static HttpURLConnection open(String address, String key) throws Exception {
-        HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
+    private static HttpURLConnection open(Activity activity, String address, String key) throws Exception {
+        HttpURLConnection connection = TrojanProxyManager.openConnection(activity, new URL(address));
         connection.setRequestMethod("GET");
         connection.setInstanceFollowRedirects(false);
         connection.setConnectTimeout(8000);
@@ -222,7 +222,7 @@ final class AppUpdater {
     private void downloadAndVerify(Latest latest, String backend, String key, File staging,
                                    UpdateDialogs.Busy progress) throws Exception {
         String url = backend + UPDATE_PATH + "/download?version=" + latest.name;
-        HttpURLConnection connection = open(url, key);
+        HttpURLConnection connection = open(activity, url, key);
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         long bytes = 0;
         int lastPercent = -1;

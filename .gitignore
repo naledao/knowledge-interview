@@ -1,3 +1,4 @@
 /.env
 /backend/.env
 /frontend/.env
+Android/app/libs/*-sources.jar
