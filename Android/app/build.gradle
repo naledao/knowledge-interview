@@ -18,6 +18,12 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
 }
 
 // OpenIDEA Android Java source compatibility
@@ -39,6 +45,8 @@ configurations {
 }
 
 dependencies {
+    implementation files('libs/libbox.aar')
+    openideaAndroidClasspath files('libs/libbox.aar')
     openideaAndroidClasspath files(file("${android.sdkDirectory}/platforms/${android.compileSdkVersion}/android.jar"))
     openideaAndroidClasspath files(file("${project.buildDir}/intermediates/compile_and_runtime_not_namespaced_r_class_jar/debug/processDebugResources/R.jar"))
 }

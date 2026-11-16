@@ -47,6 +47,11 @@ public class MainActivity extends Activity {
     private WebView webView;
     private AppUpdater appUpdater;
     private boolean initialUpdateChecked;
+    private static final int REQ_VPN_PREPARE = 9001;
+    private static final String SINGBOX_CONFIG_KEY = "singbox_config_json";
+    private static final String SINGBOX_LOCAL_PORT_KEY = "singbox_local_port";
+    private static final int DEFAULT_SINGBOX_PORT = 7897;
+    private String pendingSingBoxConfig;
 
     @Override
     @SuppressLint("SetJavaScriptEnabled")
@@ -88,6 +93,10 @@ public class MainActivity extends Activity {
                         appUpdater.check(webView, true);
                         return true;
                     }
+                    if ("/proxy".equals(uri.getPath())) {
+                        showSingBoxProxyDialog();
+                        return true;
+                    }
                 }
                 return !("https".equalsIgnoreCase(uri.getScheme()) && HOST.equalsIgnoreCase(uri.getHost()));
             }
@@ -111,6 +120,167 @@ public class MainActivity extends Activity {
     private String backendAddress() {
         return getSharedPreferences(SETTINGS_FILE, MODE_PRIVATE)
                 .getString(BACKEND_ADDRESS_KEY, DEFAULT_BACKEND);
+    }
+
+    public void startSingBox(String configJson) {
+        try {
+            io.nekohasekai.libbox.Libbox.checkConfig(configJson);
+            if (io.nekohasekai.libbox.Libbox.hasTunInbound(configJson)) {
+                android.content.Intent prepareIntent = android.net.VpnService.prepare(this);
+                if (prepareIntent != null) {
+                    pendingSingBoxConfig = configJson;
+                    startActivityForResult(prepareIntent, REQ_VPN_PREPARE);
+                    return;
+                }
+            }
+            launchSingBoxService(configJson);
+        } catch (Exception e) {
+            Toast.makeText(this, "sing-box 配置错误: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    public void stopSingBox() {
+        android.content.Intent intent = new android.content.Intent(this, SingBoxVpnService.class);
+        intent.setAction(SingBoxVpnService.ACTION_STOP);
+        startService(intent);
+        Toast.makeText(this, "已停止 sing-box 服务", Toast.LENGTH_SHORT).show();
+    }
+
+    private void launchSingBoxService(String configJson) {
+        android.content.Intent intent = new android.content.Intent(this, SingBoxVpnService.class);
+        intent.setAction(SingBoxVpnService.ACTION_START);
+        intent.putExtra(SingBoxVpnService.EXTRA_CONFIG_JSON, configJson);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            startForegroundService(intent);
+        } else {
+            startService(intent);
+        }
+        Toast.makeText(this, "正在启动 sing-box 服务", Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_VPN_PREPARE && resultCode == RESULT_OK && pendingSingBoxConfig != null) {
+            String cfg = pendingSingBoxConfig;
+            pendingSingBoxConfig = null;
+            launchSingBoxService(cfg);
+        }
+    }
+
+    private void showSingBoxProxyDialog() {
+        android.content.SharedPreferences prefs = getSharedPreferences(SETTINGS_FILE, MODE_PRIVATE);
+        String savedConfig = prefs.getString(SINGBOX_CONFIG_KEY, "");
+        int savedPort = prefs.getInt(SINGBOX_LOCAL_PORT_KEY, DEFAULT_SINGBOX_PORT);
+
+        Dialog dialog = new Dialog(this);
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(22), dp(24), dp(22), dp(22));
+        card.setBackground(dialogShape(Color.WHITE, 20, Color.TRANSPARENT));
+
+        TextView title = new TextView(this);
+        title.setText("sing-box 代理设置");
+        title.setTextSize(19);
+        title.setTypeface(null, Typeface.BOLD);
+        title.setTextColor(Color.rgb(15, 23, 42));
+        card.addView(title);
+
+        TextView statusView = new TextView(this);
+        boolean active = SingBoxVpnService.isRunning();
+        String err = SingBoxVpnService.getLastError();
+        statusView.setText(active ? "状态：运行中" : (err != null ? "状态：启动失败 (" + err + ")" : "状态：未启动"));
+        statusView.setTextSize(12);
+        statusView.setTextColor(active ? Color.rgb(22, 163, 74) : Color.rgb(100, 116, 139));
+        LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(-1, -2);
+        statusParams.topMargin = dp(4);
+        card.addView(statusView, statusParams);
+
+        EditText portInput = new EditText(this);
+        portInput.setSingleLine(true);
+        portInput.setInputType(InputType.TYPE_CLASS_NUMBER);
+        portInput.setTextSize(14);
+        portInput.setTextColor(Color.rgb(30, 41, 59));
+        portInput.setHint("本地 Mixed/HTTP 端口（默认 7897）");
+        portInput.setText(String.valueOf(savedPort));
+        portInput.setPadding(dp(13), 0, dp(13), 0);
+        portInput.setBackground(dialogShape(Color.rgb(248, 250, 252), 11, Color.rgb(203, 213, 225)));
+        LinearLayout.LayoutParams portParams = new LinearLayout.LayoutParams(-1, dp(46));
+        portParams.topMargin = dp(16);
+        card.addView(portInput, portParams);
+
+        EditText configInput = new EditText(this);
+        configInput.setTextSize(13);
+        configInput.setTextColor(Color.rgb(30, 41, 59));
+        configInput.setHint("粘贴 sing-box config.json 内容");
+        configInput.setMinLines(6);
+        configInput.setMaxLines(10);
+        configInput.setGravity(Gravity.TOP | Gravity.START);
+        configInput.setText(savedConfig);
+        configInput.setPadding(dp(13), dp(10), dp(13), dp(10));
+        configInput.setBackground(dialogShape(Color.rgb(248, 250, 252), 11, Color.rgb(203, 213, 225)));
+        LinearLayout.LayoutParams cfgParams = new LinearLayout.LayoutParams(-1, -2);
+        cfgParams.topMargin = dp(12);
+        card.addView(configInput, cfgParams);
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+
+        TextView secondaryBtn = new TextView(this);
+        secondaryBtn.setText(active ? "停止服务" : "取消");
+        secondaryBtn.setTextSize(14);
+        secondaryBtn.setTypeface(null, Typeface.BOLD);
+        secondaryBtn.setTextColor(active ? Color.rgb(220, 38, 38) : Color.rgb(71, 85, 105));
+        secondaryBtn.setGravity(Gravity.CENTER);
+        secondaryBtn.setBackground(dialogShape(Color.rgb(241, 245, 249), 10, Color.TRANSPARENT));
+        LinearLayout.LayoutParams secParams = new LinearLayout.LayoutParams(dp(92), dp(44));
+        secParams.rightMargin = dp(10);
+        actions.addView(secondaryBtn, secParams);
+
+        TextView saveBtn = new TextView(this);
+        saveBtn.setText("保存并启动");
+        saveBtn.setTextSize(14);
+        saveBtn.setTypeface(null, Typeface.BOLD);
+        saveBtn.setTextColor(Color.WHITE);
+        saveBtn.setGravity(Gravity.CENTER);
+        saveBtn.setBackground(dialogShape(Color.rgb(37, 99, 235), 10, Color.TRANSPARENT));
+        actions.addView(saveBtn, new LinearLayout.LayoutParams(dp(112), dp(44)));
+
+        LinearLayout.LayoutParams actionsParams = new LinearLayout.LayoutParams(-1, -2);
+        actionsParams.topMargin = dp(20);
+        card.addView(actions, actionsParams);
+
+        secondaryBtn.setOnClickListener(v -> {
+            if (SingBoxVpnService.isRunning()) {
+                stopSingBox();
+            }
+            dialog.dismiss();
+        });
+        saveBtn.setOnClickListener(v -> {
+            String json = configInput.getText().toString().trim();
+            int port = DEFAULT_SINGBOX_PORT;
+            try {
+                port = Integer.parseInt(portInput.getText().toString().trim());
+            } catch (NumberFormatException ignored) {
+            }
+            prefs.edit()
+                    .putString(SINGBOX_CONFIG_KEY, json)
+                    .putInt(SINGBOX_LOCAL_PORT_KEY, port)
+                    .apply();
+            dialog.dismiss();
+            if (!json.isEmpty()) {
+                startSingBox(json);
+            }
+        });
+
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(card);
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(dialogShape(Color.TRANSPARENT, 0, Color.TRANSPARENT));
+            window.setLayout((int) (getResources().getDisplayMetrics().widthPixels * 0.9), WindowManager.LayoutParams.WRAP_CONTENT);
+        }
+        dialog.show();
     }
 
     // 使用自定义浅色圆角卡片，与知识题库移动端的视觉风格保持一致。
@@ -297,7 +467,17 @@ public class MainActivity extends Activity {
         if (uri.getEncodedQuery() != null) endpoint += "?" + uri.getEncodedQuery();
         HttpURLConnection connection = null;
         try {
-            connection = (HttpURLConnection) new URL(endpoint).openConnection();
+            URL targetUrl = new URL(endpoint);
+            if (SingBoxVpnService.isRunning()) {
+                int localPort = getSharedPreferences(SETTINGS_FILE, MODE_PRIVATE)
+                        .getInt(SINGBOX_LOCAL_PORT_KEY, DEFAULT_SINGBOX_PORT);
+                java.net.Proxy proxy = new java.net.Proxy(
+                        java.net.Proxy.Type.HTTP,
+                        new java.net.InetSocketAddress("127.0.0.1", localPort));
+                connection = (HttpURLConnection) targetUrl.openConnection(proxy);
+            } else {
+                connection = (HttpURLConnection) targetUrl.openConnection();
+            }
             connection.setRequestMethod("GET");
             connection.setInstanceFollowRedirects(false);
             connection.setConnectTimeout(4000);

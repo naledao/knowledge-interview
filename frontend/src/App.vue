@@ -103,6 +103,7 @@ onUnmounted(() => {
           <RouterLink to="/search" :class="{ 'is-active': activeSection === 'explore' }" @click="closeMenu"><span class="mobile-nav-label"><Compass :size="18" />探索</span><ChevronRight :size="17" aria-hidden="true" /></RouterLink>
           <RouterLink to="/api-key" :class="{ 'is-active': activeSection === 'settings' }" @click="closeMenu"><span class="mobile-nav-label"><KeyRound :size="18" />设置</span><ChevronRight :size="17" aria-hidden="true" /></RouterLink>
           <a v-if="isNativeAndroid" href="knowledgeinterview://settings/backend" @click="closeMenu">服务器设置<span aria-hidden="true">→</span></a>
+          <a v-if="isNativeAndroid" href="knowledgeinterview://settings/proxy" @click="closeMenu">代理设置<span aria-hidden="true">→</span></a>
           <a v-if="isNativeAndroid" href="knowledgeinterview://settings/update" @click="closeMenu">检查更新<span aria-hidden="true">→</span></a>
         </nav>
       </Transition>
