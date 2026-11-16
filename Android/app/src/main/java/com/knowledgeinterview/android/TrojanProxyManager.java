@@ -76,7 +76,7 @@ public final class TrojanProxyManager {
 
     public static Config loadConfig(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(SETTINGS_FILE, Context.MODE_PRIVATE);
-        boolean enabled = prefs.getBoolean(KEY_ENABLED, false);
+        boolean enabled = prefs.getBoolean(KEY_ENABLED, true);
         String server = prefs.getString(KEY_SERVER, DEFAULT_SERVER);
         int port = prefs.getInt(KEY_PORT, DEFAULT_PORT);
         String password = prefs.getString(KEY_PASSWORD, DEFAULT_PASSWORD);
