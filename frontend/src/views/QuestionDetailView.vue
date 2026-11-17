@@ -1,5 +1,5 @@
 <script setup lang='ts'>
-import { Home, ChevronRight, MessageCircleQuestion, BookOpenCheck, Eye, EyeOff, ArrowLeft, ArrowRight, ArrowUpRight, CircleHelp, AlertCircle } from '@lucide/vue'
+import { Home, ChevronRight, MessageCircleQuestion, BookOpenCheck, Eye, EyeOff, ArrowLeft, ArrowRight, ArrowUpRight, CircleHelp, AlertCircle, Shuffle } from '@lucide/vue'
 import axios from 'axios'
 import { computed, ref, watch } from 'vue'
 import { useCachedRoute } from '../router/useCachedRoute'
@@ -10,6 +10,7 @@ import {
 import MarkdownContent from '../components/MarkdownContent.vue'
 import HtmlAnswerRenderer from '../components/HtmlAnswerRenderer.vue'
 import { isHtmlAnswer } from '../utils/answerFormat'
+import { useRandomQuestion } from '../composables/useRandomQuestion'
 
 /** 问题详情通过主键获取完整答案，前后题由轻量查询提供，避免加载全部问题。 */
 const route = useCachedRoute()
@@ -21,6 +22,7 @@ const loading = ref(true)
 const errorMessage = ref('')
 const notFound = ref(false)
 const showAnswer = ref(true)
+const { loading: randomLoading, errorMessage: randomError, goRandom } = useRandomQuestion()
 let requestVersion = 0
 
 const previousQuestion = computed(() => neighbors.value.previous)
@@ -152,6 +154,12 @@ watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
         </RouterLink>
       </nav>
 
+      <div class='random-next'>
+        <button type='button' class='random-next-button' :disabled='randomLoading' @click='goRandom(question.id)'>
+          <Shuffle :size='17' aria-hidden='true' />{{ randomLoading ? '抽取中…' : '再来一题' }}
+        </button>
+        <span v-if='randomError' class='random-next-error' role='alert'>{{ randomError }}</span>
+      </div>
     </template>
   </div>
 </template>
@@ -229,4 +237,10 @@ watch(() => route.params.id, () => { void loadQuestion() }, { immediate: true })
 .nav-card { transition: transform .18s, box-shadow .18s; }
 .nav-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px #1d4ed812; }
 @media (prefers-reduced-motion: reduce) { .nav-card:hover { transform: none; } }
+/* 再来一题：位于前后题导航下方，居中显示。 */
+.random-next { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; margin-top: 22px; }
+.random-next-button { display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; border: 1px solid #c7d7f5; border-radius: 12px; background: #fff; color: #2563eb; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; transition: border-color .18s, background .18s; }
+.random-next-button:hover:not(:disabled) { border-color: #93b4ee; background: #f4f8ff; }
+.random-next-button:disabled { cursor: progress; opacity: .7; }
+.random-next-error { color: #b91c1c; font-size: 13px; }
 </style>

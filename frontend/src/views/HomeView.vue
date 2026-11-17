@@ -4,10 +4,12 @@ import { useRouter } from 'vue-router'
 import { getCategories, getTopics, type KnowledgeCategory, type KnowledgeTopic } from '../api/knowledge'
 import { markdownToPlainText } from '../utils/plainText'
 import ListPagination from '../components/ListPagination.vue'
-import { ArrowRight, ArrowUpRight, Clock3, Layers3, Search, Sparkles } from '@lucide/vue'
+import { ArrowRight, ArrowUpRight, Clock3, Layers3, Search, Shuffle, Sparkles } from '@lucide/vue'
 import SmartIcon from '../components/SmartIcon.vue'
+import { useRandomQuestion } from '../composables/useRandomQuestion'
 
 const router = useRouter()
+const { loading: randomLoading, errorMessage: randomError, goRandom } = useRandomQuestion()
 const keyword = ref('')
 const loading = ref(true)
 const error = ref('')
@@ -69,12 +71,18 @@ onMounted(loadHome)
     <section class="home-hero" aria-labelledby="home-title">
       <p class="home-kicker"><Sparkles :size="15" aria-hidden="true" />知识题库 · 学习空间</p>
       <h1 id="home-title">找到你要复习的知识点</h1>
-      <p class="home-subtitle">直接搜索，或按分类浏览。</p>
+      <p class="home-subtitle">直接搜索，按分类浏览，或随机来一题。</p>
       <form class="home-search" role="search" @submit.prevent="search">
         <Search :size="20" aria-hidden="true" />
         <input v-model="keyword" type="search" aria-label="搜索知识点" placeholder="搜索知识点、面试题" autocomplete="off" />
         <button type="submit">开始搜索 <ArrowRight :size="17" aria-hidden="true" /></button>
       </form>
+      <div class="home-random">
+        <button type="button" class="random-button" :disabled="randomLoading" @click="goRandom()">
+          <Shuffle :size="17" aria-hidden="true" />{{ randomLoading ? '抽取中…' : '随机一题' }}
+        </button>
+        <span v-if="randomError" class="random-error" role="alert">{{ randomError }}</span>
+      </div>
     </section>
 
     <section class="home-section" aria-labelledby="category-heading">
@@ -173,4 +181,11 @@ onMounted(loadHome)
 .recent-arrow { flex-shrink: 0; transition: transform .18s; }
 @media (max-width: 520px) { .category-card { min-height: 147px; } .category-icon { width: 39px; height: 39px; } .home-search button { gap: 4px; } .recent-item-icon { flex-basis: 32px; height: 32px; } }
 @media (prefers-reduced-motion: reduce) { .category-card:hover { transform: none; } .recent-arrow, .category-arrow { transition: none; } }
+/* 随机一题：次要样式按钮，位于搜索框下方。 */
+.home-random { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 14px; }
+.random-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 18px; border: 1px solid #c7d7f5; border-radius: 10px; background: #ffffffcc; color: #2563eb; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; transition: border-color .18s, background .18s; }
+.random-button:hover:not(:disabled) { border-color: #93b4ee; background: #fff; }
+.random-button:disabled { cursor: progress; opacity: .7; }
+.random-error { color: #b91c1c; font-size: 13px; }
+@media (max-width: 520px) { .random-button { width: 100%; } }
 </style>

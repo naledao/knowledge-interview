@@ -55,6 +55,12 @@ public class MyBatisKnowledgeQuestionRepository implements KnowledgeQuestionRepo
     public Optional<KnowledgeQuestion> findNext(long topicId, int sortOrder, long id) {
         return Optional.ofNullable(mapper.findNext(topicId, sortOrder, id)).map(KnowledgeQuestionRow::toDomain);
     }
+    /** 随机查询一道题的主键，excludeId 非空时排除该题。 */
+    @Override
+    public Optional<Long> findRandomId(Long excludeId) {
+        return Optional.ofNullable(mapper.findRandomId(excludeId));
+    }
+
     /** 保存问题并返回生成的主键。 */
     @Override
     public long insert(KnowledgeQuestion question) {

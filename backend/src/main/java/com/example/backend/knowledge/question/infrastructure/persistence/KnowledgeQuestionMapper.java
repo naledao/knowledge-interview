@@ -38,6 +38,12 @@ public interface KnowledgeQuestionMapper {
     @Select("SELECT id, topic_id, question_text, NULL AS answer_text, sort_order, created_at, updated_at FROM knowledge_question WHERE topic_id = #{topicId} AND (sort_order > #{sortOrder} OR (sort_order = #{sortOrder} AND id > #{id})) ORDER BY sort_order ASC, id ASC LIMIT 1")
     @ResultMap("questionResult")
     KnowledgeQuestionRow findNext(@Param("topicId") long topicId, @Param("sortOrder") int sortOrder, @Param("id") long id);
+    /** 随机查询一道题的主键，只读取主键以避免加载 HTML 答案；excludeId 非空时排除该题。 */
+    @Select("<script>SELECT id FROM knowledge_question "
+            + "<if test='excludeId != null'>WHERE id &lt;&gt; #{excludeId}</if> "
+            + "ORDER BY RAND() LIMIT 1</script>")
+    Long findRandomId(@Param("excludeId") Long excludeId);
+
     /** 插入问题，并回填数据库自增主键。 */
     @Insert("INSERT INTO knowledge_question (topic_id, question_text, answer_text, sort_order) VALUES (#{topicId}, #{questionText}, #{answerText}, #{sortOrder})")
     @Options(useGeneratedKeys = true, keyProperty = "id")

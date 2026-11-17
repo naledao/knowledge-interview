@@ -25,7 +25,7 @@ public class McpSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/mcp", "/mcp/**").hasRole("MCP_AGENT")
                         .requestMatchers(HttpMethod.GET, "/api/app-updates/latest", "/api/app-updates/download").hasRole("MCP_AGENT")
-                       .requestMatchers(HttpMethod.GET, "/api/categories", "/api/categories/**", "/api/topics", "/api/topics/**", "/api/questions", "/api/questions/**", "/api/search").hasRole("MCP_AGENT")
+                       .requestMatchers(HttpMethod.GET, "/api/categories", "/api/categories/**", "/api/topics", "/api/topics/**", "/api/questions", "/api/questions/**", "/api/search", "/api/search/hot-keywords").hasRole("MCP_AGENT")
                         .requestMatchers(HttpMethod.GET, "/", "/index.html", "/favicon.ico", "/assets/**", "/categories/**", "/topics/**", "/questions/**", "/search", "/api-key").permitAll()
                         .anyRequest().denyAll())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(

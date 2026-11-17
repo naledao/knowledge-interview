@@ -4,6 +4,7 @@ import com.example.backend.knowledge.category.application.KnowledgeCategoryAppli
 import com.example.backend.knowledge.category.domain.model.KnowledgeCategory;
 import com.example.backend.knowledge.question.application.KnowledgeQuestionApplicationService;
 import com.example.backend.knowledge.question.application.dto.QuestionNeighbors;
+import com.example.backend.knowledge.question.application.dto.RandomQuestion;
 import com.example.backend.knowledge.question.domain.model.KnowledgeQuestion;
 import com.example.backend.knowledge.shared.domain.model.PageRequest;
 import com.example.backend.knowledge.shared.domain.model.PagedResult;
@@ -80,6 +81,15 @@ public class KnowledgeReadController {
     @GetMapping("/questions/{id}/neighbors")
     public QuestionNeighbors questionNeighbors(@PathVariable long id) {
         return questions.neighbors(id);
+    }
+
+    /**
+     * 随机抽取一道题，返回其主键，前端据此跳转到详情页。
+     * excludeId 用于避免连续抽到同一道；固定路径 random 优先于 {id} 匹配。
+     */
+    @GetMapping("/questions/random")
+    public RandomQuestion randomQuestion(@RequestParam(required = false) Long excludeId) {
+        return questions.random(excludeId);
     }
     /** 非法分页参数统一返回 HTTP 400。 */
     @ExceptionHandler(IllegalArgumentException.class)

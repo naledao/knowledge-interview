@@ -33,7 +33,7 @@ public class McpApiKeyAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getServletPath();
         return !"/mcp".equals(path) && !path.startsWith("/mcp/")
                 && !"/api/categories".equals(path) && !path.startsWith("/api/categories/") && !"/api/topics".equals(path) && !path.startsWith("/api/topics/") && !"/api/questions".equals(path) && !path.startsWith("/api/questions/")
-                && !"/api/search".equals(path) && !path.startsWith("/api/app-updates/");
+                && !"/api/search".equals(path) && !path.startsWith("/api/search/") && !path.startsWith("/api/app-updates/");
     }
 
     /** MCP Streamable HTTP 使用异步分发；每次分发都需重新验证 API Key。 */

@@ -128,6 +128,12 @@ export async function searchKnowledge(params: SearchParams, signal?: AbortSignal
   return data
 }
 
+/** 获取热门搜索词（按搜索次数排序）；没有数据时返回空数组。 */
+export async function fetchHotKeywords(limit = 5): Promise<string[]> {
+  const { data } = await client.get<string[]>('/search/hot-keywords', { params: { limit } })
+  return data
+}
+
 /** 后端 400 响应为 ProblemDetail，detail 字段可直接展示。 */
 export function errorDetail(error: unknown): string | undefined {
   if (!axios.isAxiosError(error)) return undefined
@@ -160,5 +166,16 @@ export interface QuestionNeighbors {
 
 export async function getQuestionNeighbors(id: number): Promise<QuestionNeighbors> {
   const { data } = await client.get<QuestionNeighbors>(`/questions/${id}/neighbors`)
+  return data
+}
+
+/** 随机抽题结果：只含主键，前端据此跳转到问题详情页。 */
+export interface RandomQuestion {
+  id: number
+}
+
+/** 随机抽取一道题；excludeId 用于避免连续抽到同一道，题库为空时后端返回 404。 */
+export async function getRandomQuestion(excludeId?: number): Promise<RandomQuestion> {
+  const { data } = await client.get<RandomQuestion>('/questions/random', { params: excludeId ? { excludeId } : undefined })
   return data
 }

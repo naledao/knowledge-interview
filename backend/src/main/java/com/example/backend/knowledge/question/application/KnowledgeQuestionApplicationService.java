@@ -1,6 +1,7 @@
 package com.example.backend.knowledge.question.application;
 
 import com.example.backend.knowledge.question.application.dto.QuestionNeighbors;
+import com.example.backend.knowledge.question.application.dto.RandomQuestion;
 import com.example.backend.knowledge.question.domain.model.KnowledgeQuestion;
 import com.example.backend.knowledge.question.domain.repository.KnowledgeQuestionRepository;
 import com.example.backend.knowledge.topic.domain.repository.KnowledgeTopicRepository;
@@ -68,6 +69,18 @@ public class KnowledgeQuestionApplicationService {
         var next = repository.findNext(current.topicId(), current.sortOrder(), id)
                 .map(item -> new QuestionNeighbors.QuestionLink(item.id(), item.questionText())).orElse(null);
         return new QuestionNeighbors(previous, next);
+    }
+
+    /**
+     * 随机抽取一道题，仅返回主键。
+     * excludeId 非空时优先排除该题，避免连续抽到同一道；题库只有这一题时仍返回它，题库为空时抛出异常。
+     */
+    @Transactional(readOnly = true)
+    public RandomQuestion random(Long excludeId) {
+        return repository.findRandomId(excludeId)
+                .or(() -> repository.findRandomId(null))
+                .map(RandomQuestion::new)
+                .orElseThrow(() -> new NoSuchElementException("暂无题目"));
     }
     /** 更新问题；未提供的字段保留原值，答案传空字符串可清除。 */
     @Transactional

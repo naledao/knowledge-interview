@@ -69,7 +69,9 @@ button, input { font: inherit; }
   .mobile-nav { position: absolute; top: 100%; right: 0; left: 0; display: flex; flex-direction: column; gap: 5px; padding: 14px max(16px, calc((100vw - 480px) / 2)) 22px; border-bottom: 1px solid #e2e8f0; background: #fff; box-shadow: 0 16px 26px rgba(15, 23, 42, .09); }
   .mobile-nav > a { display: flex; align-items: center; justify-content: space-between; min-height: 46px; padding: 0 14px; border-radius: 10px; color: #334155; font-size: 15px; font-weight: 600; }
   .mobile-nav > a span { color: #94a3b8; }
-  .mobile-nav > a:hover, .mobile-nav > a.is-active { background: #eff6ff; color: #2563eb; text-decoration: none; }
+  .mobile-nav > a.is-active { background: #eff6ff; color: #2563eb; text-decoration: none; }
+/* 悬停样式仅在支持真实悬停的设备生效，避免触屏点击后残留，与当前页高亮同时出现 */
+@media (hover: hover) and (pointer: fine) { .mobile-nav > a:not(.is-active):hover { background: #f8fafc; color: #2563eb; text-decoration: none; } }
   .mobile-nav > a.is-active span { color: #2563eb; }
   .mobile-search { margin-top: 12px; padding-top: 17px; border-top: 1px solid #f1f5f9; }
   .mobile-search label { display: block; margin-bottom: 10px; color: #475569; font-size: 13px; font-weight: 600; }

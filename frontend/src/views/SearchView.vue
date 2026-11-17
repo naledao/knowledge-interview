@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { Search, FolderOpen, Layers3, CircleHelp, SearchX, AlertCircle, ArrowUpRight } from '@lucide/vue'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter, type LocationQueryRaw } from 'vue-router'
 import { useCachedRoute } from '../router/useCachedRoute'
 import {
-  errorDetail, searchKnowledge,
+  errorDetail, fetchHotKeywords, searchKnowledge,
   type SearchHit, type SearchKind, type SearchResponse, type SearchType,
 } from '../api/knowledge'
 
@@ -18,7 +18,9 @@ const TYPES: SearchType[] = ['all', 'category', 'topic', 'question']
 const typeLabels: Record<SearchType, string> = { all: '全部', category: '分类', topic: '主题', question: '问题' }
 const kindLabels: Record<SearchKind, string> = { category: '知识分类', topic: '学习主题', question: '面试问题' }
 const kindPaths: Record<SearchKind, string> = { category: '/categories', topic: '/topics', question: '/questions' }
-const suggestions = ['Vue', 'JavaScript', 'MySQL', 'Redis', '算法']
+const HOT_KEYWORD_LIMIT = 5
+/** 热门搜索词由后端按搜索次数返回；未加载、加载失败或暂无数据时为空，此时不显示推荐区。 */
+const suggestions = ref<string[]>([])
 
 const route = useCachedRoute()
 const router = useRouter()
@@ -157,6 +159,15 @@ function resultMatchesRoute() {
     && data.type === activeType.value && data.page === page.value
 }
 watch([keyword, activeType, page], () => { if (!resultMatchesRoute()) void runSearch() }, { immediate: true })
+/** 加载热门搜索词；失败时只记录日志，推荐区保持隐藏，不打扰用户。 */
+async function loadHotKeywords() {
+  try {
+    suggestions.value = await fetchHotKeywords(HOT_KEYWORD_LIMIT)
+  } catch (error) {
+    console.warn('加载热门搜索词失败，不显示推荐词', error)
+  }
+}
+onMounted(() => { void loadHotKeywords() })
 onBeforeUnmount(() => controller?.abort())
 </script>
 
@@ -177,7 +188,7 @@ onBeforeUnmount(() => controller?.abort())
         />
         <button type="submit" :disabled="loading && searchInput.trim() === keyword">搜索</button>
       </form>
-      <div class="suggestions">
+      <div v-if="suggestions.length" class="suggestions">
         <span>试试</span>
         <button v-for="suggestion in suggestions" :key="suggestion" type="button" @click="searchSuggestion(suggestion)">
           {{ suggestion }}
@@ -395,4 +406,7 @@ mark { padding: 0 2px; border-radius: 3px; color: #4338ca; background: #e0e7ff; 
 .message-icon svg { stroke-width: 1.8; }
 .result-card { box-shadow: 0 2px 9px rgba(27, 54, 110, .025); }
 @media (prefers-reduced-motion: reduce) { .result-open-icon { transition: none; } }
+/* 搜索卡片：滚动结果列表时固定在顶部栏下方；top 需与全局顶部栏高度一致（桌面 74px，宽度 ≤760px 时 62px）。 */
+.search-hero { position: sticky; top: 74px; z-index: 20; box-shadow: 0 8px 22px rgba(30, 41, 59, .08); }
+@media (max-width: 760px) { .search-hero { top: 62px; } }
 </style>

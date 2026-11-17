@@ -19,6 +19,8 @@ public interface KnowledgeQuestionRepository {
     /** 查询同一主题中按业务排序紧邻的上一题和下一题。 */
     Optional<KnowledgeQuestion> findPrevious(long topicId, int sortOrder, long id);
     Optional<KnowledgeQuestion> findNext(long topicId, int sortOrder, long id);
+    /** 随机查询一道题的主键，只读取主键以避免加载 HTML 答案；excludeId 非空时排除该题，没有可选题目时返回空。 */
+    Optional<Long> findRandomId(Long excludeId);
     /** 创建问题并返回数据库生成的主键。 */
     long insert(KnowledgeQuestion question);
     /** 更新问题并返回受影响行数。 */
