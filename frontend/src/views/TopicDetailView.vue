@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Home, ChevronRight, BookOpenText, ArrowUpRight, CircleHelp, AlertCircle } from '@lucide/vue'
+import { Home, ChevronRight, BookOpenText, ArrowUpRight, CircleHelp, AlertCircle, RefreshCw } from '@lucide/vue'
 import axios from 'axios'
 import { computed, ref, watch } from 'vue'
 import { useCachedRoute } from '../router/useCachedRoute'
@@ -18,7 +18,9 @@ const questionTotal = ref(0)
 const loading = ref(true)
 const errorMessage = ref('')
 const notFound = ref(false)
-let requestVersion = 0
+const refreshing = ref(false)
+ const refreshError = ref('')
+ let requestVersion = 0
 
 const sortedQuestions = computed(() =>
   [...questions.value].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id),
@@ -31,19 +33,24 @@ function parseTopicId(value: unknown): number | null {
 }
 
 /** 只加载当前问题页，并忽略切换路由或翻页后过期的请求。 */
-async function loadTopic(resetPage = false) {
+async function loadTopic(resetPage = false, silent = false) {
   const version = ++requestVersion
   if (resetPage) questionPage.value = 1
-  topic.value = null
-  category.value = null
-  questions.value = []
-  loading.value = true
+  if (!silent) {
+    topic.value = null
+    category.value = null
+    questions.value = []
+  }
+  loading.value = !silent
+  refreshing.value = silent
+  refreshError.value = ''
   errorMessage.value = ''
   notFound.value = false
   const topicId = parseTopicId(route.params.id)
   if (topicId === null) {
     notFound.value = true
     loading.value = false
+    refreshing.value = false
     return
   }
   try {
@@ -60,13 +67,23 @@ async function loadTopic(resetPage = false) {
     questionTotal.value = result.total
   } catch (error) {
     if (version !== requestVersion) return
+    if (silent && topic.value) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        topic.value = null
+        notFound.value = true
+      } else {
+        refreshError.value = '刷新失败，请稍后重试。'
+        console.error('主题刷新失败', error)
+      }
+      return
+    }
     if (axios.isAxiosError(error) && error.response?.status === 404) notFound.value = true
     else {
       errorMessage.value = '主题数据加载失败，请检查网络连接后重试。'
       console.error('主题详情加载失败', error)
     }
   } finally {
-    if (version === requestVersion) loading.value = false
+    if (version === requestVersion) { loading.value = false; refreshing.value = false }
   }
 }
 
@@ -74,6 +91,12 @@ function changeQuestionPage(page: number) {
   if (loading.value || page < 1 || page > questionPages.value || page === questionPage.value) return
   questionPage.value = page
   void loadTopic()
+}
+
+/** 保持当前分页与滚动位置，只重新拉取主题、分类和当前页问题。 */
+function refreshTopic() {
+  if (loading.value || refreshing.value) return
+  void loadTopic(false, true)
 }
 
 watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true })
@@ -121,11 +144,16 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
         </div>
       </header>
 
-      <section class="questions-section" aria-labelledby="questions-heading">
+      <section class="questions-section" :aria-busy="refreshing" aria-labelledby="questions-heading">
         <div class="section-heading">
           <div>
             <h2 id="questions-heading"><BookOpenText :size="23" aria-hidden="true" />知识问题</h2>
+            <p v-if="refreshError" class="refresh-hint" role="alert">{{ refreshError }}</p>
           </div>
+          <button class="refresh-button" type="button" :disabled="refreshing || loading" aria-label="刷新主题内容" @click="refreshTopic">
+            <RefreshCw :class="['refresh-icon', { spinning: refreshing }]" :size="17" aria-hidden="true" />
+            <span>{{ refreshing ? '刷新中…' : '刷新' }}</span>
+          </button>
         </div>
 
         <ol v-if="sortedQuestions.length" class="question-list">
@@ -145,7 +173,7 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
           <h3>暂无问题</h3>
           <RouterLink class="return-link" :to="`/categories/${topic.categoryId}`">浏览其他主题 →</RouterLink>
         </div>
-        <ListPagination :page-num='questionPage' :pages='questionPages' :loading='loading' @change='changeQuestionPage' />
+        <ListPagination :page-num='questionPage' :pages='questionPages' :loading='loading || refreshing' @change='changeQuestionPage' />
       </section>
     </template>
   </div>
@@ -169,7 +197,7 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
 .hero-decoration { flex: 0 0 176px; display: grid; place-items: center; width: 176px; height: 176px; border: 20px solid #ede9fe; border-radius: 50%; color: #7c3aed; font-size: 49px; font-weight: 900; transform: rotate(-8deg); }
 .hero-amp { color: #a78bfa; }
 .questions-section { padding-top: 54px; }
-.section-heading { display: flex; justify-content: space-between; align-items: end; gap: 18px; margin-bottom: 26px; }
+.section-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 18px; margin-bottom: 26px; }
 .section-heading h2 { margin: 0; font-size: clamp(24px, 3vw, 31px); }
 .section-description { margin: 12px 0 0; color: #64748b; line-height: 1.7; }
 .question-count { flex-shrink: 0; padding: 8px 13px; border: 1px solid #e2e8f0; border-radius: 99px; color: #475569; font-size: 13px; }
@@ -227,4 +255,14 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
 .question-card { transition: transform .18s, box-shadow .18s, border-color .18s; }
 .question-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px #6d28d914; }
 @media (prefers-reduced-motion: reduce) { .question-card:hover { transform: none; } }
-</style>
+
+/* 主题页刷新 */
+.refresh-button { display: inline-flex; flex-shrink: 0; align-items: center; gap: 7px; padding: 9px 15px; border: 1px solid #ddd6fe; border-radius: 99px; background: #fff; color: #6d28d9; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .18s, border-color .18s; }
+.refresh-button:hover:not(:disabled) { border-color: #c4b5fd; background: #f5f3ff; }
+.refresh-button:disabled { opacity: .7; cursor: progress; }
+.refresh-button:focus-visible { outline: 2px solid #6d28d9; outline-offset: 2px; }
+.refresh-icon.spinning { animation: refresh-spin .9s linear infinite; }
+@keyframes refresh-spin { to { transform: rotate(360deg); } }
+.refresh-hint { margin: 10px 0 0; font-size: 13px; color: #b91c1c; }
+.questions-section[aria-busy="true"] .question-list, .questions-section[aria-busy="true"] .empty-state { opacity: .55; transition: opacity .15s; }
+@media (prefers-reduced-motion: reduce) { .refresh-icon.spinning { animation: none; } }</style>
