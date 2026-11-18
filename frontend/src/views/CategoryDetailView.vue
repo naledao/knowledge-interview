@@ -1,5 +1,5 @@
 <script setup lang='ts'>
-import { Home, ChevronRight, Layers3, BookOpen, ArrowUpRight, CircleHelp, AlertCircle, RefreshCw } from '@lucide/vue'
+import { Home, ChevronRight, Layers3, BookOpen, ArrowUpRight, CircleHelp, AlertCircle } from '@lucide/vue'
 import axios from 'axios'
 import { computed, ref, watch } from 'vue'
 import { useCachedRoute } from '../router/useCachedRoute'
@@ -18,9 +18,7 @@ const topicTotal = ref(0)
 const loading = ref(true)
 const errorMessage = ref('')
 const notFound = ref(false)
-const refreshing = ref(false)
- const refreshError = ref('')
- let requestVersion = 0
+let requestVersion = 0
 
 const sortedTopics = computed(() =>
   [...topics.value].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id),
@@ -33,23 +31,18 @@ function parseCategoryId(value: unknown): number | null {
 }
 
 /** 路由变更重置页码；翻页时只加载目标页，旧请求结果不覆盖新页面。 */
-async function loadCategory(resetPage = false, silent = false) {
+async function loadCategory(resetPage = false) {
   const version = ++requestVersion
   if (resetPage) topicPage.value = 1
-  if (!silent) {
-    category.value = null
-    topics.value = []
-  }
-  loading.value = !silent
-  refreshing.value = silent
-  refreshError.value = ''
+  category.value = null
+  topics.value = []
+  loading.value = true
   errorMessage.value = ''
   notFound.value = false
   const categoryId = parseCategoryId(route.params.id)
   if (categoryId === null) {
     notFound.value = true
     loading.value = false
-    refreshing.value = false
     return
   }
 
@@ -64,23 +57,13 @@ async function loadCategory(resetPage = false, silent = false) {
     topicTotal.value = result.total
   } catch (error) {
     if (version !== requestVersion) return
-    if (silent && category.value) {
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
-        category.value = null
-        notFound.value = true
-      } else {
-        refreshError.value = '刷新失败，请稍后重试。'
-        console.error('分类刷新失败', error)
-      }
-      return
-    }
     if (axios.isAxiosError(error) && error.response?.status === 404) notFound.value = true
     else {
       errorMessage.value = '分类数据加载失败，请检查网络连接后重试。'
       console.error('分类详情加载失败', error)
     }
   } finally {
-    if (version === requestVersion) { loading.value = false; refreshing.value = false }
+    if (version === requestVersion) loading.value = false
   }
 }
 
@@ -88,12 +71,6 @@ function changeTopicPage(page: number) {
   if (loading.value || page < 1 || page > topicPages.value || page === topicPage.value) return
   topicPage.value = page
   void loadCategory()
-}
-
-/** 保持当前分页与滚动位置，只重新拉取分类和当前页主题。 */
-function refreshCategory() {
-  if (loading.value || refreshing.value) return
-  void loadCategory(false, true)
 }
 
 watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: true })
@@ -139,16 +116,11 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
         </div>
       </header>
 
-      <section class='topics-section' :aria-busy='refreshing' aria-labelledby='topics-heading'>
+      <section class='topics-section' aria-labelledby='topics-heading'>
         <div class='section-heading'>
           <div>
             <h2 id='topics-heading'><Layers3 :size='23' aria-hidden='true' />学习主题</h2>
-            <p v-if='refreshError' class='refresh-hint' role='alert'>{{ refreshError }}</p>
           </div>
-          <button class='refresh-button' type='button' :disabled='refreshing || loading' aria-label='刷新学习主题' @click='refreshCategory'>
-            <RefreshCw :class="['refresh-icon', { spinning: refreshing }]" :size='17' aria-hidden='true' />
-            <span>{{ refreshing ? '刷新中…' : '刷新' }}</span>
-          </button>
         </div>
 
         <div v-if='topicTotal' class='topic-grid'>
@@ -172,7 +144,7 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
           <h3>暂无学习主题</h3>
           <RouterLink to='/' class='home-link'>浏览其他分类 →</RouterLink>
         </div>
-        <ListPagination :page-num='topicPage' :pages='topicPages' :loading='loading || refreshing' @change='changeTopicPage' />
+        <ListPagination :page-num='topicPage' :pages='topicPages' :loading='loading' @change='changeTopicPage' />
       </section>
     </template>
   </div>
@@ -196,7 +168,7 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
 .art-circle-back { inset: 0; border: 22px solid #dbeafe; }
 .art-circle-front { inset: 34px; background: #2563eb; color: #fff; font-size: 74px; box-shadow: 0 15px 30px #1d4ed826; }
 .topics-section { padding-top: 56px; }
-.section-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 20px; margin-bottom: 26px; }
+.section-heading { display: flex; justify-content: space-between; align-items: end; gap: 20px; margin-bottom: 26px; }
 .section-eyebrow { margin-bottom: 9px; }
 .section-heading h2 { margin: 0; font-size: clamp(24px, 3vw, 31px); }
 .section-description { margin: 12px 0 0; color: #64748b; line-height: 1.7; }
@@ -257,14 +229,4 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
 .card-arrow { transition: background .18s, color .18s; }
 .topic-card:hover .card-arrow { background: #e7efff; color: #315ed2; }
 @media (prefers-reduced-motion: reduce) { .topic-card:hover { transform: none; } }
-
-/* 学习主题刷新 */
-.refresh-button { display: inline-flex; flex-shrink: 0; align-items: center; gap: 7px; padding: 9px 15px; border: 1px solid #bfdbfe; border-radius: 999px; background: #fff; color: #1d4ed8; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .18s, border-color .18s; }
-.refresh-button:hover:not(:disabled) { border-color: #93c5fd; background: #eff6ff; }
-.refresh-button:disabled { opacity: .7; cursor: progress; }
-.refresh-button:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
-.refresh-icon.spinning { animation: refresh-spin .9s linear infinite; }
-@keyframes refresh-spin { to { transform: rotate(360deg); } }
-.refresh-hint { margin: 10px 0 0; font-size: 13px; color: #b91c1c; }
-.topics-section[aria-busy="true"] .topic-grid, .topics-section[aria-busy="true"] .empty-state { opacity: .55; transition: opacity .15s; }
-@media (prefers-reduced-motion: reduce) { .refresh-icon.spinning { animation: none; } }</style>
+</style>
