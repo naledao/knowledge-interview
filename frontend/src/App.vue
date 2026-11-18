@@ -11,6 +11,16 @@ const searchKeyword = ref('')
 /** 仅内置安卓 WebView 展示服务器配置入口。 */
 const isNativeAndroid = navigator.userAgent.includes('KnowledgeInterviewAndroid/')
 
+const pageRefreshing = ref(false)
+
+/** 移动端 WebView 没有浏览器刷新入口，点击按钮直接重新加载当前页面。 */
+function refreshPage() {
+  if (pageRefreshing.value) return
+  pageRefreshing.value = true
+  closeMenu()
+  window.location.reload()
+}
+
 /** 分类、主题及问题详情统一归属于知识探索导航。 */
 const activeSection = computed(() => {
   if (route.name === 'home') return 'home'
@@ -81,6 +91,9 @@ onUnmounted(() => {
         </form>
 
         <div class="header-actions">
+          <button type="button" class="page-refresh-button" :class="{ 'is-refreshing': pageRefreshing }" aria-label="刷新当前页面" title="刷新当前页面" @click="refreshPage">
+            <RefreshCw :size="19" aria-hidden="true" />
+          </button>
           <a v-if="isNativeAndroid" href="knowledgeinterview://settings/update" class="native-server-link" aria-label="检查更新" title="检查更新" @click="closeMenu">
             <RefreshCw :size="19" aria-hidden="true" />
           </a>
