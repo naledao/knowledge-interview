@@ -6,6 +6,7 @@ import { useCachedRoute } from '../router/useCachedRoute'
 import { getCategory, getTopics, type KnowledgeCategory, type KnowledgeTopic } from '../api/knowledge'
 import MarkdownContent from '../components/MarkdownContent.vue'
 import ListPagination from '../components/ListPagination.vue'
+import { readRememberedPage, rememberPage } from '../utils/pageMemory'
 import { markdownToPlainText } from '../utils/plainText'
 
 /** 分类详情页通过 ID 查询分类信息，并按页加载所属主题。 */
@@ -30,16 +31,21 @@ function parseCategoryId(value: unknown): number | null {
   return Number.isSafeInteger(id) ? id : null
 }
 
+/** 页码按分类维度记忆，整页刷新后可回到原分页。 */
+function categoryPageKey(id: number): string {
+  return `category:${id}`
+}
+
 /** 路由变更重置页码；翻页时只加载目标页，旧请求结果不覆盖新页面。 */
 async function loadCategory(resetPage = false) {
   const version = ++requestVersion
-  if (resetPage) topicPage.value = 1
+  const categoryId = parseCategoryId(route.params.id)
+  if (resetPage) topicPage.value = categoryId === null ? 1 : readRememberedPage(categoryPageKey(categoryId))
   category.value = null
   topics.value = []
   loading.value = true
   errorMessage.value = ''
   notFound.value = false
-  const categoryId = parseCategoryId(route.params.id)
   if (categoryId === null) {
     notFound.value = true
     loading.value = false
@@ -52,9 +58,15 @@ async function loadCategory(resetPage = false) {
     ])
     if (version !== requestVersion) return
     category.value = currentCategory
-    topics.value = result.items
     topicPages.value = result.pages
     topicTotal.value = result.total
+    if (topicPage.value > Math.max(1, result.pages)) {
+      topicPage.value = Math.max(1, result.pages)
+      rememberPage(categoryPageKey(categoryId), Math.max(1, result.pages))
+      void loadCategory()
+      return
+    }
+    topics.value = result.items
   } catch (error) {
     if (version !== requestVersion) return
     if (axios.isAxiosError(error) && error.response?.status === 404) notFound.value = true
@@ -69,6 +81,8 @@ async function loadCategory(resetPage = false) {
 
 function changeTopicPage(page: number) {
   if (loading.value || page < 1 || page > topicPages.value || page === topicPage.value) return
+  const categoryId = parseCategoryId(route.params.id)
+  if (categoryId !== null) rememberPage(categoryPageKey(categoryId), page)
   topicPage.value = page
   void loadCategory()
 }

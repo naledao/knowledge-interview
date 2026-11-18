@@ -6,6 +6,7 @@ import { useCachedRoute } from '../router/useCachedRoute'
 import { getCategory, getTopic, getQuestions, type KnowledgeCategory, type KnowledgeTopic, type KnowledgeQuestion } from '../api/knowledge'
 import MarkdownContent from '../components/MarkdownContent.vue'
 import ListPagination from '../components/ListPagination.vue'
+import { readRememberedPage, rememberPage } from '../utils/pageMemory'
 
 /** 主题详情按 ID 查询，问题列表通过数据库分页获取。 */
 const route = useCachedRoute()
@@ -30,17 +31,22 @@ function parseTopicId(value: unknown): number | null {
   return Number.isSafeInteger(id) ? id : null
 }
 
+/** 页码按主题维度记忆，整页刷新后可回到原分页。 */
+function topicPageKey(id: number): string {
+  return `topic:${id}`
+}
+
 /** 只加载当前问题页，并忽略切换路由或翻页后过期的请求。 */
 async function loadTopic(resetPage = false) {
   const version = ++requestVersion
-  if (resetPage) questionPage.value = 1
+  const topicId = parseTopicId(route.params.id)
+  if (resetPage) questionPage.value = topicId === null ? 1 : readRememberedPage(topicPageKey(topicId))
   topic.value = null
   category.value = null
   questions.value = []
   loading.value = true
   errorMessage.value = ''
   notFound.value = false
-  const topicId = parseTopicId(route.params.id)
   if (topicId === null) {
     notFound.value = true
     loading.value = false
@@ -55,9 +61,15 @@ async function loadTopic(resetPage = false) {
     if (version !== requestVersion) return
     topic.value = current
     category.value = currentCategory
-    questions.value = result.items
     questionPages.value = result.pages
     questionTotal.value = result.total
+    if (questionPage.value > Math.max(1, result.pages)) {
+      questionPage.value = Math.max(1, result.pages)
+      rememberPage(topicPageKey(topicId), Math.max(1, result.pages))
+      void loadTopic()
+      return
+    }
+    questions.value = result.items
   } catch (error) {
     if (version !== requestVersion) return
     if (axios.isAxiosError(error) && error.response?.status === 404) notFound.value = true
@@ -72,6 +84,8 @@ async function loadTopic(resetPage = false) {
 
 function changeQuestionPage(page: number) {
   if (loading.value || page < 1 || page > questionPages.value || page === questionPage.value) return
+  const topicId = parseTopicId(route.params.id)
+  if (topicId !== null) rememberPage(topicPageKey(topicId), page)
   questionPage.value = page
   void loadTopic()
 }

@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCategories, getTopics, type KnowledgeCategory, type KnowledgeTopic } from '../api/knowledge'
 import { markdownToPlainText } from '../utils/plainText'
+import { readRememberedPage, rememberPage } from '../utils/pageMemory'
 import ListPagination from '../components/ListPagination.vue'
 import { ArrowRight, ArrowUpRight, Clock3, Layers3, Search, Shuffle, Sparkles } from '@lucide/vue'
 import SmartIcon from '../components/SmartIcon.vue'
@@ -15,7 +16,7 @@ const loading = ref(true)
 const error = ref('')
 const categories = ref<KnowledgeCategory[]>([])
 const recentItems = ref<{ id: number; title: string; category: string }[]>([])
-const categoryPage = ref(1)
+const categoryPage = ref(readRememberedPage('home:categories'))
 const categoryPages = ref(0)
 
 function timestamp(value: string | null): number {
@@ -30,6 +31,12 @@ async function loadHome() {
   try {
     const [categoryData, topicData] = await Promise.all([getCategories(categoryPage.value), getTopics()])
     categoryPages.value = categoryData.pages
+    if (categoryPage.value > Math.max(1, categoryData.pages)) {
+      categoryPage.value = Math.max(1, categoryData.pages)
+      rememberPage('home:categories', Math.max(1, categoryData.pages))
+      void loadHome()
+      return
+    }
     categories.value = [...categoryData.items]
       .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
       .map((category) => ({ ...category, description: markdownToPlainText(category.description) }))
@@ -54,6 +61,7 @@ async function loadHome() {
 
 function changeCategoryPage(page: number) {
   if (page < 1 || page > categoryPages.value || page === categoryPage.value) return
+  rememberPage('home:categories', page)
   categoryPage.value = page
   void loadHome()
 }
