@@ -34,7 +34,8 @@ spring:
       server:
         name: ${MCP_SERVER_NAME:knowledge-mcp}
         version: ${MCP_SERVER_VERSION:1.0.0}
-        protocol: ${MCP_SERVER_PROTOCOL:STREAMABLE}
+        # 默认使用无状态 Streamable HTTP（GET /mcp 返回 405，避免阻塞等待空闲 SSE 响应头）
+        protocol: ${MCP_SERVER_PROTOCOL:STATELESS}
         type: ${MCP_SERVER_TYPE:SYNC}
         instructions: >-
           本知识库采用分类(Category)→主题(Topic)→问题(Question，可附答案)三级结构；分类仅表示领域，主题组织知识点，具体问答必须存入 Question。
