@@ -38,6 +38,11 @@ const urlMode = computed<SearchMode | null>(() => {
   return MODES.includes(value) ? value : null
 })
 const activeMode = computed<SearchMode>(() => urlMode.value ?? 'keyword')
+/** 搜索模式下拉：选择后只记住状态 A，URL 由下方 watch 同步，顶部搜索框的下拉走同一条路径。 */
+const modeModel = computed<SearchMode>({
+  get: () => activeMode.value,
+  set: (value) => rememberSearchMode(value),
+})
 const activeType = computed<SearchType>(() => {
   const value = queryString(route.query.type) as SearchType
   return TYPES.includes(value) ? value : 'all'
@@ -200,6 +205,14 @@ function resultMatchesRoute() {
     && data.mode === activeMode.value && data.type === activeType.value && data.page === page.value
 }
 watch([keyword, activeMode, activeType, page], () => { if (!resultMatchesRoute()) void runSearch() }, { immediate: true })
+/**
+ * 顶部搜索框或本页下拉切换了搜索模式（状态 A）时，同步搜索页 URL。
+ * 仅当前激活的搜索页实例处理，避免安卓保活的休眠实例误触发跳转。
+ */
+watch(rememberedSearchMode, (value) => {
+  if (router.currentRoute.value.fullPath !== route.fullPath) return
+  if (value !== activeMode.value) setMode(value)
+})
 /** 加载热门搜索词；失败时只记录日志，推荐区保持隐藏，不打扰用户。 */
 async function loadHotKeywords() {
   try {
@@ -217,18 +230,6 @@ onBeforeUnmount(() => controller?.abort())
     <section class="search-hero" aria-labelledby="search-title">
       <div class="search-hero-header">
         <h1 id="search-title"><Search :size="29" aria-hidden="true" />搜索题库</h1>
-        <div class="mode-switch" role="group" aria-label="搜索模式">
-          <button
-            v-for="mode in MODES"
-            :key="mode"
-            type="button"
-            :class="['mode-button', { active: activeMode === mode }]"
-            :aria-pressed="activeMode === mode"
-            @click="setMode(mode)"
-          >
-            {{ modeLabels[mode] }}
-          </button>
-        </div>
       </div>
       <p>
         <template v-if="activeMode === 'exact'">精确搜索目前仅支持按问题 ID 查找，输入正整数编号直接定位对应面试题。</template>
@@ -236,6 +237,9 @@ onBeforeUnmount(() => controller?.abort())
       </p>
       <form class="search-form" role="search" @submit.prevent="submitSearch">
         <Search class="search-symbol" :size="24" aria-hidden="true" />
+        <select v-model="modeModel" class="search-mode-select" aria-label="搜索模式">
+          <option v-for="mode in MODES" :key="mode" :value="mode">{{ modeLabels[mode] }}</option>
+        </select>
         <input
           v-model="searchInput"
           type="search"
@@ -360,10 +364,6 @@ onBeforeUnmount(() => controller?.abort())
 .search-hero-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .search-hero h1 { position: relative; z-index: 1; margin: 0; font-size: clamp(27px, 4vw, 41px); line-height: 1.3; letter-spacing: -.03em; }
 .search-hero h1 span { color: #4f46e5; }
-.mode-switch { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid #dbe3f0; border-radius: 11px; background: #ffffffcc; }
-.mode-button { padding: 6px 13px; border: 0; border-radius: 8px; background: transparent; color: #64748b; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; transition: background .15s, color .15s; }
-.mode-button:hover { color: #1e293b; }
-.mode-button.active { background: #2563eb; color: #fff; }
 .search-hero > p { margin: 0 0 28px; color: #64748b; font-size: 14px; line-height: 1.8; }
 .search-form { position: relative; z-index: 1; display: flex; align-items: center; gap: 12px; max-width: 820px; min-height: 64px; padding: 7px 8px 7px 22px; background: white; border: 1px solid #dbe3f0; border-radius: 14px; box-shadow: 0 9px 26px #47556912; }
 .search-form:focus-within { border-color: #818cf8; box-shadow: 0 0 0 3px #6366f119; }
@@ -441,7 +441,7 @@ mark { padding: 0 2px; border-radius: 3px; color: #4338ca; background: #e0e7ff; 
   .pagination { gap: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .result-card, .result-list.refreshing, .mode-button { transition: none; }
+  .result-card, .result-list.refreshing { transition: none; }
   .loading-spinner { animation: none; }
 }
 
@@ -453,6 +453,10 @@ mark { padding: 0 2px; border-radius: 3px; color: #4338ca; background: #e0e7ff; 
 .search-form { min-height: 54px; max-width: 700px; box-shadow: none; }
 .search-form button { background: #2563eb; }
 .search-form button:hover { background: #1d4ed8; }
+.search-form .search-mode-select { flex-shrink: 0; appearance: none; -webkit-appearance: none; padding: 9px 30px 9px 13px; border: 1px solid #dbe3f0; border-radius: 10px; outline: 0; background: #f1f5f9 url(data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2010%206%27%3E%3Cpath%20d=%27M1%201l4%204%204-4%27%20fill=%27none%27%20stroke=%27%23475569%27%20stroke-width=%271.6%27/%3E%3C/svg%3E) no-repeat right 11px center / 11px; color: #1e293b; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+.search-form .search-mode-select:hover { border-color: #c7d2e3; }
+.search-form .search-mode-select:focus-visible { border-color: #818cf8; box-shadow: 0 0 0 3px #6366f119; }
+@media (max-width: 640px) { .search-form .search-mode-select { max-width: 128px; padding: 7px 24px 7px 8px; font-size: 12px; background-position: right 8px center; } }
 .suggestions { margin-top: 14px; }
 .search-content { padding-top: 28px; }
 .result-heading { margin-bottom: 18px; }

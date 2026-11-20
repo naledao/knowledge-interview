@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter, type LocationQueryRaw } from 'vue-router'
-import { rememberedSearchMode } from './utils/searchModeMemory'
+import { rememberedSearchMode, rememberSearchMode } from './utils/searchModeMemory'
+import type { SearchMode } from './api/knowledge'
 import { BookOpenText, House, Compass, Search, KeyRound, Menu, X, RefreshCw, ServerCog, ChevronRight } from '@lucide/vue'
 
 /** 全站导航：PC 展示横向导航与快捷搜索，移动端使用可收起菜单。 */
@@ -12,7 +13,15 @@ const searchKeyword = ref('')
 /** 当前搜索模式（状态 A），与搜索页共用；顶部搜索框据此搜索并展示模式。 */
 const searchMode = rememberedSearchMode
 const searchPlaceholder = computed(() => (searchMode.value === 'exact' ? '输入问题 ID' : '搜索题库'))
-const searchModeLabel = computed(() => (searchMode.value === 'exact' ? 'ID 精确' : '关键词'))
+/** 顶部搜索框的模式下拉选项；选择后写入共用的状态 A，搜索页会同步。 */
+const searchModeOptions: { value: SearchMode; label: string }[] = [
+  { value: 'keyword', label: '关键词' },
+  { value: 'exact', label: '问题 ID' },
+]
+const searchModeModel = computed<SearchMode>({
+  get: () => searchMode.value,
+  set: (value) => rememberSearchMode(value),
+})
 /** 仅内置安卓 WebView 展示服务器配置入口。 */
 const isNativeAndroid = navigator.userAgent.includes('KnowledgeInterviewAndroid/')
 
@@ -95,7 +104,9 @@ onUnmounted(() => {
         <form class="header-search" role="search" @submit.prevent="submitSearch">
           <label for="header-search-input" class="visually-hidden">搜索知识点</label>
           <Search class="search-icon" :size="18" aria-hidden="true" />
-          <span class="search-mode-tag" title="当前搜索模式">{{ searchModeLabel }}</span>
+          <select v-model="searchModeModel" class="search-mode-select" aria-label="搜索模式" title="切换搜索模式">
+            <option v-for="item in searchModeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
+          </select>
           <input id="header-search-input" v-model="searchKeyword" type="search" :placeholder="searchPlaceholder" :inputmode="searchMode === 'exact' ? 'numeric' : 'search'" autocomplete="off" />
           <button type="submit" aria-label="搜索知识">搜索</button>
         </form>
