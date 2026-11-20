@@ -3,6 +3,7 @@ import { Search, FolderOpen, Layers3, CircleHelp, SearchX, AlertCircle, ArrowUpR
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter, type LocationQueryRaw } from 'vue-router'
 import { useCachedRoute } from '../router/useCachedRoute'
+import { rememberedSearchMode, rememberSearchMode } from '../utils/searchModeMemory'
 import {
   errorDetail, fetchHotKeywords, searchKnowledge,
   type SearchHit, type SearchKind, type SearchMode, type SearchResponse, type SearchType,
@@ -31,10 +32,12 @@ function queryString(value: unknown): string {
   return typeof value === 'string' ? value : Array.isArray(value) && typeof value[0] === 'string' ? value[0] : ''
 }
 const keyword = computed(() => queryString(route.query.q).trim())
-const activeMode = computed<SearchMode>(() => {
+/** URL 中显式携带的搜索模式；未携带时为 null。 */
+const urlMode = computed<SearchMode | null>(() => {
   const value = queryString(route.query.mode) as SearchMode
-  return MODES.includes(value) ? value : 'keyword'
+  return MODES.includes(value) ? value : null
 })
+const activeMode = computed<SearchMode>(() => urlMode.value ?? 'keyword')
 const activeType = computed<SearchType>(() => {
   const value = queryString(route.query.type) as SearchType
   return TYPES.includes(value) ? value : 'all'
@@ -108,6 +111,8 @@ function submitSearch() {
 
 function setMode(value: SearchMode) {
   if (value === activeMode.value) return
+  // 先记住用户选择的模式，顶部搜索框和刷新后都以此为准。
+  rememberSearchMode(value)
   const trimmed = searchInput.value.trim().slice(0, MAX_KEYWORD_LENGTH)
   const canCarryQuery = value === 'keyword'
     ? trimmed.length > 0
@@ -175,6 +180,19 @@ function highlighted(value: string): { text: string; hit: boolean }[] {
 }
 
 watch(keyword, (value) => { searchInput.value = value }, { immediate: true })
+/**
+ * 同步搜索模式（状态 A）：
+ * - URL 显式带模式或带关键词时，以 URL 为准并记住；
+ * - 空白搜索页（如点击导航进入）且 URL 无模式时，恢复上次记住的精确搜索模式。
+ */
+watch([keyword, urlMode], () => {
+  if (urlMode.value || keyword.value) {
+    rememberSearchMode(activeMode.value)
+    return
+  }
+  const saved = rememberedSearchMode.value
+  if (saved !== 'keyword') void updateQuery({ mode: saved }, true)
+}, { immediate: true })
 /** URL 修正（如页码越界被后端改为末页）后，若已有结果与新状态一致则不重复请求。 */
 function resultMatchesRoute() {
   const data = result.value

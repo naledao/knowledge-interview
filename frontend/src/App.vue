@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import { RouterLink, RouterView, useRoute, useRouter, type LocationQueryRaw } from 'vue-router'
+import { rememberedSearchMode } from './utils/searchModeMemory'
 import { BookOpenText, House, Compass, Search, KeyRound, Menu, X, RefreshCw, ServerCog, ChevronRight } from '@lucide/vue'
 
 /** 全站导航：PC 展示横向导航与快捷搜索，移动端使用可收起菜单。 */
@@ -8,6 +9,10 @@ const route = useRoute()
 const router = useRouter()
 const menuOpen = ref(false)
 const searchKeyword = ref('')
+/** 当前搜索模式（状态 A），与搜索页共用；顶部搜索框据此搜索并展示模式。 */
+const searchMode = rememberedSearchMode
+const searchPlaceholder = computed(() => (searchMode.value === 'exact' ? '输入问题 ID' : '搜索题库'))
+const searchModeLabel = computed(() => (searchMode.value === 'exact' ? 'ID 精确' : '关键词'))
 /** 仅内置安卓 WebView 展示服务器配置入口。 */
 const isNativeAndroid = navigator.userAgent.includes('KnowledgeInterviewAndroid/')
 
@@ -37,7 +42,11 @@ function closeMenu() {
 function submitSearch() {
   const keyword = searchKeyword.value.trim()
   closeMenu()
-  void router.push({ name: 'search', query: keyword ? { q: keyword } : {} })
+  // 带上当前记住的搜索模式（状态 A）；关键词模式沿用省略 mode 的写法。
+  const query: LocationQueryRaw = {}
+  if (keyword) query.q = keyword
+  if (searchMode.value !== 'keyword') query.mode = searchMode.value
+  void router.push({ name: 'search', query })
 }
 
 function handleKeydown(event: KeyboardEvent) {
@@ -86,7 +95,8 @@ onUnmounted(() => {
         <form class="header-search" role="search" @submit.prevent="submitSearch">
           <label for="header-search-input" class="visually-hidden">搜索知识点</label>
           <Search class="search-icon" :size="18" aria-hidden="true" />
-          <input id="header-search-input" v-model="searchKeyword" type="search" placeholder="搜索题库" autocomplete="off" />
+          <span class="search-mode-tag" title="当前搜索模式">{{ searchModeLabel }}</span>
+          <input id="header-search-input" v-model="searchKeyword" type="search" :placeholder="searchPlaceholder" :inputmode="searchMode === 'exact' ? 'numeric' : 'search'" autocomplete="off" />
           <button type="submit" aria-label="搜索知识">搜索</button>
         </form>
 
