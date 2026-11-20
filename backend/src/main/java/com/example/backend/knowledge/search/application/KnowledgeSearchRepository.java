@@ -1,8 +1,9 @@
 package com.example.backend.knowledge.search.application;
 
 import java.util.List;
+import java.util.Optional;
 
-/** 搜索读模型仓储：按关键词 AND 匹配初筛候选，相关度排序由应用服务完成。 */
+/** 搜索读模型仓储：按关键词 AND 匹配初筛候选及按主键精确查询问题，相关度排序由应用服务完成。 */
 public interface KnowledgeSearchRepository {
     /**
      * 查询指定类型的候选，结果按 sort_order、id 升序。
@@ -12,4 +13,13 @@ public interface KnowledgeSearchRepository {
      * @param limit 最多返回的候选数量
      */
     List<KnowledgeSearchCandidate> search(KnowledgeSearchKind kind, List<String> terms, String lead, int limit);
+
+    /**
+     * 根据问题主键精确查询单条候选记录，不存在时返回空。
+     *
+     * @param id 问题主键 ID
+     */
+    default Optional<KnowledgeSearchCandidate> findQuestionById(long id) {
+        return Optional.empty();
+    }
 }

@@ -32,4 +32,28 @@ class MyBatisKnowledgeSearchRepositoryTests {
         });
         verify(mapper, never()).searchQuestions(anyList(), anyString(), anyInt());
     }
+
+    @Test
+    void findsQuestionByIdWhenPresentAndReturnsEmptyWhenMissing() {
+        KnowledgeSearchMapper mapper = mock(KnowledgeSearchMapper.class);
+        KnowledgeSearchRow row = new KnowledgeSearchRow();
+        row.setId(42L);
+        row.setTitle("JVM 内存模型");
+        row.setBody("程序计数器、虚拟机栈...");
+        row.setBodyOffset(1);
+        row.setBodyLength(12);
+        row.setBreadcrumb("Java / JVM");
+        when(mapper.findQuestionById(42L)).thenReturn(row);
+        when(mapper.findQuestionById(99L)).thenReturn(null);
+
+        MyBatisKnowledgeSearchRepository repo = new MyBatisKnowledgeSearchRepository(mapper);
+
+        assertThat(repo.findQuestionById(42L)).isPresent().get().satisfies(candidate -> {
+            assertThat(candidate.kind()).isEqualTo(KnowledgeSearchKind.QUESTION);
+            assertThat(candidate.id()).isEqualTo(42L);
+            assertThat(candidate.title()).isEqualTo("JVM 内存模型");
+            assertThat(candidate.breadcrumb()).isEqualTo("Java / JVM");
+        });
+        assertThat(repo.findQuestionById(99L)).isEmpty();
+    }
 }

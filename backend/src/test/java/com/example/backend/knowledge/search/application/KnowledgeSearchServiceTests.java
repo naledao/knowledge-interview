@@ -110,4 +110,36 @@ class KnowledgeSearchServiceTests {
         assertThat(KnowledgeSearchService.excerpt(candidate(KnowledgeSearchKind.TOPIC, 1, "t", "  短\n描述 "), List.of("描述")))
                 .isEqualTo("短 描述");
     }
+
+    @Test
+    void prioritizesExactQuestionIdMatchAndDeduplicates() {
+        KnowledgeSearchCandidate exact = new KnowledgeSearchCandidate(
+                KnowledgeSearchKind.QUESTION, 42, "什么是 MVCC？", "多版本并发控制原理", 1, 9, "MySQL / 事务与锁");
+        KnowledgeSearchCandidate textMatchedSameId = candidate(KnowledgeSearchKind.QUESTION, 42, "什么是 MVCC？", "包含 42 的文本");
+        KnowledgeSearchCandidate textMatchedOther = candidate(KnowledgeSearchKind.QUESTION, 7, "第 42 条优化建议", "正文");
+
+        when(repository.findQuestionById(42L)).thenReturn(java.util.Optional.of(exact));
+        when(repository.search(eq(KnowledgeSearchKind.QUESTION), anyList(), anyString(), anyInt()))
+                .thenReturn(List.of(textMatchedSameId, textMatchedOther));
+
+        KnowledgeSearchResult result = service.search("#42", "all", 1, 10);
+
+        assertThat(result.items()).extracting(KnowledgeSearchResult.Hit::id).containsExactly(42L, 7L);
+        assertThat(result.items().get(0).score()).isEqualTo(KnowledgeSearchService.EXACT_ID_SCORE);
+        assertThat(result.items().get(0).breadcrumb()).isEqualTo("MySQL / 事务与锁");
+        assertThat(result.counts().question()).isEqualTo(2);
+        assertThat(result.counts().all()).isEqualTo(2);
+    }
+
+    @Test
+    void fallsBackToTextSearchWhenExactQuestionIdDoesNotExist() {
+        when(repository.findQuestionById(999L)).thenReturn(java.util.Optional.empty());
+        when(repository.search(eq(KnowledgeSearchKind.QUESTION), anyList(), anyString(), anyInt()))
+                .thenReturn(List.of(candidate(KnowledgeSearchKind.QUESTION, 12, "错误码 999 排查", null)));
+
+        KnowledgeSearchResult result = service.search("999", "question", 1, 10);
+
+        assertThat(result.items()).extracting(KnowledgeSearchResult.Hit::id).containsExactly(12L);
+        assertThat(result.counts().question()).isEqualTo(1);
+    }
 }

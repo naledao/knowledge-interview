@@ -7,7 +7,7 @@ import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Component;
 
-/** 向 AI Agent 提供知识库关键词搜索，复用现有搜索应用服务。 */
+/** 向 AI Agent 提供知识库关键词及问题 ID 搜索，复用现有搜索应用服务。 */
 @Component
 public class KnowledgeSearchTools {
     private final KnowledgeSearchService service;
@@ -16,10 +16,10 @@ public class KnowledgeSearchTools {
         this.service = service;
     }
 
-    /** 搜索分类、主题、问题及答案；统一限制每页最多六条。 */
-    @McpTool(name = "search_knowledge", description = "按关键词搜索知识库分类、主题、问题及答案，支持空格分隔的多个关键词（AND 匹配），按相关度排序；默认每页6条、最多6条。创建知识前优先搜索已有内容以避免重复；返回匹配摘要，若需完整问题答案可根据ID调用get_knowledge_question。")
+    /** 搜索分类、主题、问题及答案；支持按问题 ID 精确匹配，统一限制每页最多六条。 */
+    @McpTool(name = "search_knowledge", description = "按关键词或问题ID（支持纯数字如 42、#42 或 id:42）搜索知识库分类、主题、问题及答案，支持空格分隔的多个关键词（AND 匹配），按相关度排序；默认每页6条、最多6条。创建知识前优先搜索已有内容以避免重复；返回匹配摘要，若需完整问题答案可根据ID调用get_knowledge_question。")
     public KnowledgeSearchResult search(
-            @McpToolParam(description = "搜索关键词，必填，最多100字符；多个关键词用空格分隔", required = true) String keyword,
+            @McpToolParam(description = "搜索关键词或问题ID，必填，最多100字符；多个关键词用空格分隔", required = true) String keyword,
             @McpToolParam(description = "搜索类型：all、category、topic、question，默认all", required = false) String type,
             @McpToolParam(description = "页码，从1开始，默认1", required = false) Integer pageNum,
             @McpToolParam(description = "每页条数，默认6，最大6", required = false) Integer pageSize) {

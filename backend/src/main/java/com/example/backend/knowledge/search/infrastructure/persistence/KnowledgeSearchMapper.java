@@ -58,4 +58,18 @@ public interface KnowledgeSearchMapper {
             + " ORDER BY c.sort_order, c.id, t.sort_order, t.id, q.sort_order, q.id LIMIT #{limit}</script>")
     List<KnowledgeSearchRow> searchQuestions(@Param("patterns") List<String> patterns,
                                              @Param("lead") String lead, @Param("limit") int limit);
+
+    /**
+     * 根据主键 ID 精确查询问题候选记录，返回正文前 600 个字符用于生成摘要。
+     */
+    @Select("SELECT q.id AS id, q.question_text AS title, "
+            + "SUBSTRING(q.answer_text, 1, 600) AS body, "
+            + "1 AS bodyOffset, "
+            + "COALESCE(CHAR_LENGTH(q.answer_text), 0) AS bodyLength, "
+            + "CONCAT_WS(' / ', c.name, t.title) AS breadcrumb "
+            + "FROM knowledge_question q "
+            + "JOIN knowledge_topic t ON t.id = q.topic_id "
+            + "JOIN knowledge_category c ON c.id = t.category_id "
+            + "WHERE q.id = #{id}")
+    KnowledgeSearchRow findQuestionById(@Param("id") long id);
 }

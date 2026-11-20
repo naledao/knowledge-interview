@@ -175,14 +175,14 @@ onBeforeUnmount(() => controller?.abort())
   <div class="search-page">
     <section class="search-hero" aria-labelledby="search-title">
       <h1 id="search-title"><Search :size="29" aria-hidden="true" />搜索题库</h1>
-      <p>支持分类、主题、问题及答案搜索；多个关键词用空格分隔。</p>
+      <p>支持分类、主题、问题、答案及问题 ID（如 #12）搜索；多个关键词用空格分隔。</p>
       <form class="search-form" role="search" @submit.prevent="submitSearch">
         <Search class="search-symbol" :size="24" aria-hidden="true" />
         <input
           v-model="searchInput"
           type="search"
           aria-label="搜索知识内容"
-          placeholder="输入知识点或面试题"
+          placeholder="输入知识点、面试题或问题 ID"
           autocomplete="off"
           :maxlength="MAX_KEYWORD_LENGTH"
         />
