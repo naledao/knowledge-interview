@@ -1,5 +1,6 @@
 package com.example.backend.knowledge.search.application;
 
+import com.example.backend.knowledge.search.domain.model.SearchMode;
 import com.example.backend.knowledge.search.domain.model.SearchQuery;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -12,7 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 知识搜索应用服务：支持按问题 ID 精确匹配与多词 AND 模糊搜索，并负责相关度打分、排序、类型筛选和分页。
+ * 知识搜索应用服务：区分普通关键词模糊搜索与精确搜索（目前支持按问题 ID 精确查找），并负责相关度打分、排序、类型筛选和分页。
  * 个人知识库数据量有限，单类型候选上限用于兜住 "a" 这类宽泛关键词带来的大结果集。
  */
 @Service
@@ -22,8 +23,8 @@ public class KnowledgeSearchService {
     public static final int MAX_PAGE_SIZE = 50;
     static final int CANDIDATE_LIMIT = 500;
     static final int EXCERPT_LENGTH = 160;
-    /** 问题 ID 精确匹配的基础分值，确保排在所有普通文本匹配结果之前。 */
-    static final int EXACT_ID_SCORE = 10_000;
+    /** 精确匹配命中的固定分值。 */
+    static final int EXACT_MATCH_SCORE = 10_000;
 
     private final KnowledgeSearchRepository repository;
 
@@ -32,43 +33,73 @@ public class KnowledgeSearchService {
     }
 
     /**
-     * 搜索分类、主题、问题及答案；当关键词为问题 ID（如 42、#42、id:42）时优先精确匹配对应问题。
-     *
-     * @param type all（或空）/ category / topic / question；只影响返回的列表，计数始终覆盖全部类型
-     * @param page 从 1 开始；超过末页时返回末页
+     * 使用默认关键词搜索模式执行检索。
      */
     @Transactional(readOnly = true)
     public KnowledgeSearchResult search(String keyword, String type, int page, int size) {
-        SearchQuery query = SearchQuery.of(keyword);
+        return search(keyword, SearchMode.KEYWORD.value(), type, page, size);
+    }
+
+    /**
+     * 按指定搜索模式检索知识库内容。
+     *
+     * @param keyword 搜索关键词或精确查询值
+     * @param mode    搜索模式：keyword（默认，多词模糊匹配）/ exact（精确搜索，目前支持问题 ID）
+     * @param type    all（或空）/ category / topic / question；只影响返回的列表，计数始终覆盖全部类型
+     * @param page    从 1 开始；超过末页时返回末页
+     * @param size    每页条数
+     */
+    @Transactional(readOnly = true)
+    public KnowledgeSearchResult search(String keyword, String mode, String type, int page, int size) {
+        SearchMode searchMode = SearchMode.fromValue(mode);
+        SearchQuery query = SearchQuery.of(keyword, searchMode);
         KnowledgeSearchKind filter = parseType(type);
         if (page < 1) throw new IllegalArgumentException("页码必须大于 0");
         if (size < 1 || size > MAX_PAGE_SIZE) {
             throw new IllegalArgumentException("每页条数必须在 1 到 " + MAX_PAGE_SIZE + " 之间");
         }
 
+        if (searchMode == SearchMode.EXACT) {
+            return searchExact(query, filter, page, size);
+        }
+        return searchByKeywords(query, filter, page, size);
+    }
+
+    /**
+     * 执行精确搜索：目前仅按问题主键 ID 精确查询，不混入普通模糊匹配结果。
+     */
+    private KnowledgeSearchResult searchExact(SearchQuery query, KnowledgeSearchKind filter, int page, int size) {
+        long questionId = query.exactQuestionId().orElseThrow();
+        Optional<KnowledgeSearchCandidate> found = repository.findQuestionById(questionId);
+        List<KnowledgeSearchResult.Hit> questionHits = found.map(candidate -> List.of(toExactHit(candidate)))
+                .orElseGet(List::of);
+
+        List<KnowledgeSearchResult.Hit> matched =
+                (filter == null || filter == KnowledgeSearchKind.QUESTION) ? questionHits : List.of();
+        int total = matched.size();
+        int totalPages = Math.max(1, (total + size - 1) / size);
+        int currentPage = Math.min(page, totalPages);
+        int from = (currentPage - 1) * size;
+        List<KnowledgeSearchResult.Hit> items = List.copyOf(matched.subList(from, Math.min(total, from + size)));
+
+        int questionCount = questionHits.size();
+        KnowledgeSearchResult.Counts counts = new KnowledgeSearchResult.Counts(questionCount, 0, 0, questionCount);
+        return new KnowledgeSearchResult(query.normalizedKeyword(), SearchMode.EXACT.value(), List.of(),
+                filter == null ? "all" : filter.value(), currentPage, size, total, totalPages, counts, false, items);
+    }
+
+    /**
+     * 执行普通关键词多词 AND 模糊搜索与相关度排序。
+     */
+    private KnowledgeSearchResult searchByKeywords(SearchQuery query, KnowledgeSearchKind filter, int page, int size) {
         List<String> terms = query.terms();
         String lead = query.leadTerm();
-        Optional<Long> exactQuestionId = query.exactQuestionId();
-        Optional<KnowledgeSearchCandidate> exactQuestion = exactQuestionId.flatMap(repository::findQuestionById);
-
         Map<KnowledgeSearchKind, List<KnowledgeSearchResult.Hit>> byKind = new EnumMap<>(KnowledgeSearchKind.class);
         boolean truncated = false;
         for (KnowledgeSearchKind kind : KnowledgeSearchKind.values()) {
             List<KnowledgeSearchCandidate> candidates = repository.search(kind, terms, lead, CANDIDATE_LIMIT);
             truncated |= candidates.size() >= CANDIDATE_LIMIT;
-            if (kind == KnowledgeSearchKind.QUESTION && exactQuestion.isPresent()) {
-                long matchedId = exactQuestion.get().id();
-                List<KnowledgeSearchResult.Hit> questionHits = new ArrayList<>();
-                questionHits.add(toExactIdHit(exactQuestion.get(), terms));
-                for (KnowledgeSearchCandidate candidate : candidates) {
-                    if (candidate.id() != matchedId) {
-                        questionHits.add(toHit(candidate, terms));
-                    }
-                }
-                byKind.put(kind, List.copyOf(questionHits));
-            } else {
-                byKind.put(kind, candidates.stream().map(candidate -> toHit(candidate, terms)).toList());
-            }
+            byKind.put(kind, candidates.stream().map(candidate -> toHit(candidate, terms)).toList());
         }
 
         List<KnowledgeSearchResult.Hit> matched = new ArrayList<>();
@@ -89,8 +120,8 @@ public class KnowledgeSearchService {
         int questions = byKind.get(KnowledgeSearchKind.QUESTION).size();
         KnowledgeSearchResult.Counts counts = new KnowledgeSearchResult.Counts(
                 categories + topics + questions, categories, topics, questions);
-        return new KnowledgeSearchResult(query.normalizedKeyword(), terms, filter == null ? "all" : filter.value(),
-                currentPage, size, total, totalPages, counts, truncated, items);
+        return new KnowledgeSearchResult(query.normalizedKeyword(), SearchMode.KEYWORD.value(), terms,
+                filter == null ? "all" : filter.value(), currentPage, size, total, totalPages, counts, truncated, items);
     }
 
     /** 按空白分词、转小写并去重；超出上限的词直接忽略，避免生成过长的 SQL。 */
@@ -107,13 +138,13 @@ public class KnowledgeSearchService {
         }
     }
 
-    /** 构建问题 ID 精确命中的搜索结果，赋予最高排序分值并生成答案摘要。 */
-    private static KnowledgeSearchResult.Hit toExactIdHit(KnowledgeSearchCandidate candidate, List<String> terms) {
+    /** 构建精确命中的搜索结果，返回完整标题与正文开头摘要。 */
+    private static KnowledgeSearchResult.Hit toExactHit(KnowledgeSearchCandidate candidate) {
         String title = candidate.title() == null ? "" : candidate.title();
         String breadcrumb = candidate.breadcrumb() == null || candidate.breadcrumb().isBlank()
                 ? defaultBreadcrumb(candidate.kind()) : candidate.breadcrumb();
         return new KnowledgeSearchResult.Hit(candidate.kind().value(), candidate.id(), title,
-                excerpt(candidate, terms), breadcrumb, false, EXACT_ID_SCORE);
+                excerpt(candidate, List.of()), breadcrumb, false, EXACT_MATCH_SCORE);
     }
 
     /** 标题完全匹配 > 前缀匹配 > 包含 > 仅正文命中。 */

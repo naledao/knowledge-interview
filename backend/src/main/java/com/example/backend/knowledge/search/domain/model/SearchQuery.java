@@ -5,43 +5,54 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 搜索查询值对象：封装关键词规范化、分词规则以及问题 ID 精确匹配意图识别。
+ * 搜索查询值对象：根据搜索模式封装关键词规范化、分词规则或精确问题 ID 解析。
  */
-public record SearchQuery(String normalizedKeyword, List<String> terms, Optional<Long> exactQuestionId) {
+public record SearchQuery(SearchMode mode, String normalizedKeyword, List<String> terms, Optional<Long> exactQuestionId) {
     /** 搜索关键词最大允许长度。 */
     public static final int MAX_KEYWORD_LENGTH = 100;
     /** 单次搜索最多参与匹配的分词数量。 */
     public static final int MAX_TERMS = 5;
 
-    /** 匹配纯正整数、#ID 或 id:ID（不区分大小写，支持中英文冒号）的问题编号格式。 */
-    private static final Pattern QUESTION_ID_PATTERN =
-            Pattern.compile("^(?:#|(?i:id)[:：]\\s*)?([1-9][0-9]*)$");
+    /** 精确问题 ID 格式：仅接受正整数。 */
+    private static final Pattern POSITIVE_INTEGER_PATTERN = Pattern.compile("^[1-9][0-9]*$");
 
     /**
-     * 从原始用户输入构造经过校验与规范化的搜索查询值对象。
-     *
-     * @param rawKeyword 用户输入的原始搜索词
-     * @return 规范化后的搜索查询值对象
+     * 使用默认关键词搜索模式构造查询值对象。
      */
     public static SearchQuery of(String rawKeyword) {
+        return of(rawKeyword, SearchMode.KEYWORD);
+    }
+
+    /**
+     * 按指定搜索模式校验并构造查询值对象。
+     *
+     * @param rawKeyword 用户输入的原始搜索内容
+     * @param mode       搜索模式（关键词搜索或精确搜索）
+     * @return 规范化后的搜索查询值对象
+     */
+    public static SearchQuery of(String rawKeyword, SearchMode mode) {
+        SearchMode effectiveMode = mode == null ? SearchMode.KEYWORD : mode;
         String normalized = rawKeyword == null ? "" : rawKeyword.strip().replaceAll("\\s+", " ");
         if (normalized.isEmpty()) {
-            throw new IllegalArgumentException("搜索关键词不能为空");
+            throw new IllegalArgumentException(effectiveMode == SearchMode.EXACT
+                    ? "请输入要精确搜索的问题 ID"
+                    : "搜索关键词不能为空");
         }
         if (normalized.length() > MAX_KEYWORD_LENGTH) {
             throw new IllegalArgumentException("搜索关键词不能超过 " + MAX_KEYWORD_LENGTH + " 个字符");
         }
-        List<String> terms = parseTerms(normalized);
-        Optional<Long> questionId = parseExactQuestionId(normalized);
-        return new SearchQuery(normalized, terms, questionId);
+        if (effectiveMode == SearchMode.EXACT) {
+            long questionId = parseExactQuestionId(normalized);
+            return new SearchQuery(SearchMode.EXACT, normalized, List.of(), Optional.of(questionId));
+        }
+        return new SearchQuery(SearchMode.KEYWORD, normalized, parseTerms(normalized), Optional.empty());
     }
 
     /**
-     * 提取用于数据库正文窗口定位的主导词（取最长分词）。
+     * 提取用于数据库正文窗口定位的主导词（取最长分词，仅关键词模式使用）。
      */
     public String leadTerm() {
         return terms.stream()
@@ -60,22 +71,20 @@ public record SearchQuery(String normalizedKeyword, List<String> terms, Optional
     }
 
     /**
-     * 识别规范化后的搜索词是否表达精确查询某道问题 ID 的意图。
-     * 支持纯数字（如 "42"）、井号前缀（如 "#42"）以及前缀写法（如 "id:42"、"ID：42"）。
+     * 校验并解析正整数问题 ID。
      */
-    public static Optional<Long> parseExactQuestionId(String normalizedKeyword) {
-        if (normalizedKeyword == null || normalizedKeyword.isBlank()) {
-            return Optional.empty();
-        }
-        Matcher matcher = QUESTION_ID_PATTERN.matcher(normalizedKeyword.strip());
-        if (!matcher.matches()) {
-            return Optional.empty();
+    public static long parseExactQuestionId(String normalizedKeyword) {
+        if (normalizedKeyword == null || !POSITIVE_INTEGER_PATTERN.matcher(normalizedKeyword).matches()) {
+            throw new IllegalArgumentException("精确搜索目前仅支持输入正整数问题 ID");
         }
         try {
-            long id = Long.parseLong(matcher.group(1));
-            return id > 0 ? Optional.of(id) : Optional.empty();
+            long id = Long.parseLong(normalizedKeyword);
+            if (id <= 0) {
+                throw new IllegalArgumentException("精确搜索目前仅支持输入正整数问题 ID");
+            }
+            return id;
         } catch (NumberFormatException ex) {
-            return Optional.empty();
+            throw new IllegalArgumentException("问题 ID 超出有效范围", ex);
         }
     }
 }

@@ -5,15 +5,17 @@ import { useRouter, type LocationQueryRaw } from 'vue-router'
 import { useCachedRoute } from '../router/useCachedRoute'
 import {
   errorDetail, fetchHotKeywords, searchKnowledge,
-  type SearchHit, type SearchKind, type SearchResponse, type SearchType,
+  type SearchHit, type SearchKind, type SearchMode, type SearchResponse, type SearchType,
 } from '../api/knowledge'
 
 /**
  * 搜索页：匹配、相关度排序和分页均由后端 /api/search 完成，页面只请求当前页数据。
- * URL（q / type / page）是搜索状态的唯一来源，支持前进后退、刷新和链接分享。
+ * URL（q / mode / type / page）是搜索状态的唯一来源，支持前进后退、刷新和链接分享。
  */
 const PAGE_SIZE = 8
 const MAX_KEYWORD_LENGTH = 100
+const MODES: SearchMode[] = ['keyword', 'exact']
+const modeLabels: Record<SearchMode, string> = { keyword: '关键词搜索', exact: '精确搜索（问题 ID）' }
 const TYPES: SearchType[] = ['all', 'category', 'topic', 'question']
 const typeLabels: Record<SearchType, string> = { all: '全部', category: '分类', topic: '主题', question: '问题' }
 const kindLabels: Record<SearchKind, string> = { category: '知识分类', topic: '学习主题', question: '面试问题' }
@@ -29,6 +31,10 @@ function queryString(value: unknown): string {
   return typeof value === 'string' ? value : Array.isArray(value) && typeof value[0] === 'string' ? value[0] : ''
 }
 const keyword = computed(() => queryString(route.query.q).trim())
+const activeMode = computed<SearchMode>(() => {
+  const value = queryString(route.query.mode) as SearchMode
+  return MODES.includes(value) ? value : 'keyword'
+})
 const activeType = computed<SearchType>(() => {
   const value = queryString(route.query.type) as SearchType
   return TYPES.includes(value) ? value : 'all'
@@ -59,7 +65,7 @@ async function runSearch() {
   errorMessage.value = ''
   try {
     const data = await searchKnowledge(
-      { q: keyword.value, type: activeType.value, page: page.value, size: PAGE_SIZE },
+      { q: keyword.value, mode: activeMode.value, type: activeType.value, page: page.value, size: PAGE_SIZE },
       current.signal,
     )
     if (current.signal.aborted) return
@@ -79,13 +85,15 @@ async function runSearch() {
   }
 }
 
-function updateQuery(patch: { q?: string; type?: SearchType; page?: number }, replace = false) {
+function updateQuery(patch: { q?: string; mode?: SearchMode; type?: SearchType; page?: number }, replace = false) {
   const q = patch.q ?? keyword.value
+  const mode = patch.mode ?? activeMode.value
   const type = patch.type ?? activeType.value
   const nextPage = patch.page ?? page.value
   const query: LocationQueryRaw = {}
   if (q) query.q = q
-  if (q && type !== 'all') query.type = type
+  if (mode !== 'keyword') query.mode = mode
+  if (q && mode === 'keyword' && type !== 'all') query.type = type
   if (q && nextPage > 1) query.page = String(nextPage)
   const location = { name: 'search' as const, query }
   return replace ? router.replace(location) : router.push(location)
@@ -96,6 +104,21 @@ function submitSearch() {
   // 新关键词从全部类型第一页开始；同一关键词重复提交时强制刷新结果。
   if (q === keyword.value && activeType.value === 'all' && page.value === 1) void runSearch()
   else void updateQuery({ q, type: 'all', page: 1 })
+}
+
+function setMode(value: SearchMode) {
+  if (value === activeMode.value) return
+  const trimmed = searchInput.value.trim().slice(0, MAX_KEYWORD_LENGTH)
+  const canCarryQuery = value === 'keyword'
+    ? trimmed.length > 0
+    : /^[1-9]\d*$/.test(trimmed)
+  if (!canCarryQuery) searchInput.value = ''
+  void updateQuery({
+    q: canCarryQuery ? trimmed : '',
+    mode: value,
+    type: 'all',
+    page: 1,
+  })
 }
 
 function searchSuggestion(value: string) {
@@ -116,8 +139,8 @@ function goToPage(value: number) {
 const filters = computed(() => TYPES.map((value) => ({
   value, label: typeLabels[value], count: result.value?.counts[value] ?? 0,
 })))
-/** 首次加载或切换关键词时显示整块加载态；翻页、切换筛选时保留旧列表并淡化，减少闪烁。 */
-const showSkeleton = computed(() => loading.value && (!result.value || result.value.keyword !== keyword.value))
+/** 首次加载或切换关键词/模式时显示整块加载态；翻页、切换筛选时保留旧列表并淡化，减少闪烁。 */
+const showSkeleton = computed(() => loading.value && (!result.value || result.value.keyword !== keyword.value || result.value.mode !== activeMode.value))
 const terms = computed(() => result.value?.terms ?? [])
 
 function hitPath(item: SearchHit) {
@@ -156,9 +179,9 @@ watch(keyword, (value) => { searchInput.value = value }, { immediate: true })
 function resultMatchesRoute() {
   const data = result.value
   return !!data && !errorMessage.value && data.keyword === keyword.value.replace(/\s+/g, ' ')
-    && data.type === activeType.value && data.page === page.value
+    && data.mode === activeMode.value && data.type === activeType.value && data.page === page.value
 }
-watch([keyword, activeType, page], () => { if (!resultMatchesRoute()) void runSearch() }, { immediate: true })
+watch([keyword, activeMode, activeType, page], () => { if (!resultMatchesRoute()) void runSearch() }, { immediate: true })
 /** 加载热门搜索词；失败时只记录日志，推荐区保持隐藏，不打扰用户。 */
 async function loadHotKeywords() {
   try {
@@ -174,21 +197,41 @@ onBeforeUnmount(() => controller?.abort())
 <template>
   <div class="search-page">
     <section class="search-hero" aria-labelledby="search-title">
-      <h1 id="search-title"><Search :size="29" aria-hidden="true" />搜索题库</h1>
-      <p>支持分类、主题、问题、答案及问题 ID（如 #12）搜索；多个关键词用空格分隔。</p>
+      <div class="search-hero-header">
+        <h1 id="search-title"><Search :size="29" aria-hidden="true" />搜索题库</h1>
+        <div class="mode-switch" role="group" aria-label="搜索模式">
+          <button
+            v-for="mode in MODES"
+            :key="mode"
+            type="button"
+            :class="['mode-button', { active: activeMode === mode }]"
+            :aria-pressed="activeMode === mode"
+            @click="setMode(mode)"
+          >
+            {{ modeLabels[mode] }}
+          </button>
+        </div>
+      </div>
+      <p>
+        <template v-if="activeMode === 'exact'">精确搜索目前仅支持按问题 ID 查找，输入正整数编号直接定位对应面试题。</template>
+        <template v-else>支持分类、主题、问题和答案模糊搜索；多个关键词用空格分隔。</template>
+      </p>
       <form class="search-form" role="search" @submit.prevent="submitSearch">
         <Search class="search-symbol" :size="24" aria-hidden="true" />
         <input
           v-model="searchInput"
           type="search"
-          aria-label="搜索知识内容"
-          placeholder="输入知识点、面试题或问题 ID"
+          :inputmode="activeMode === 'exact' ? 'numeric' : 'search'"
+          :aria-label="activeMode === 'exact' ? '输入精确搜索的问题 ID' : '搜索知识内容'"
+          :placeholder="activeMode === 'exact' ? '输入问题 ID（如 42）' : '输入知识点、面试题关键词'"
           autocomplete="off"
           :maxlength="MAX_KEYWORD_LENGTH"
         />
-        <button type="submit" :disabled="loading && searchInput.trim() === keyword">搜索</button>
+        <button type="submit" :disabled="loading && searchInput.trim() === keyword">
+          {{ activeMode === 'exact' ? '精确查找' : '搜索' }}
+        </button>
       </form>
-      <div v-if="suggestions.length" class="suggestions">
+      <div v-if="activeMode === 'keyword' && suggestions.length" class="suggestions">
         <span>试试</span>
         <button v-for="suggestion in suggestions" :key="suggestion" type="button" @click="searchSuggestion(suggestion)">
           {{ suggestion }}
@@ -204,7 +247,8 @@ onBeforeUnmount(() => controller?.abort())
             <template v-if="showSkeleton">正在检索知识库...</template>
             <template v-else-if="errorMessage">暂时无法获取结果</template>
             <template v-else-if="result">
-              “{{ keyword }}” · <strong>{{ result.counts.all }}</strong> 条
+              <template v-if="activeMode === 'exact'">问题 ID #{{ keyword }} · <strong>{{ result.counts.all }}</strong> 条</template>
+              <template v-else>“{{ keyword }}” · <strong>{{ result.counts.all }}</strong> 条</template>
               <span v-if="result.truncated" class="truncated-note">（结果较多，建议缩小范围）</span>
             </template>
           </p>
@@ -224,7 +268,7 @@ onBeforeUnmount(() => controller?.abort())
       </div>
 
       <template v-else-if="result">
-        <div class="filter-bar" role="group" aria-label="筛选搜索结果">
+        <div v-if="activeMode === 'keyword'" class="filter-bar" role="group" aria-label="筛选搜索结果">
           <button
             v-for="filter in filters"
             :key="filter.value"
@@ -239,9 +283,15 @@ onBeforeUnmount(() => controller?.abort())
 
         <div v-if="!result.items.length" class="message-panel">
           <div class="message-icon" aria-hidden="true"><SearchX :size="30" /></div>
-          <h3>{{ result.counts.all ? '该类型下暂无匹配内容' : '没有找到相关内容' }}</h3>
-          <p>试试其他关键词。</p>
-          <button v-if="result.counts.all" class="outline-button" type="button" @click="setType('all')">查看全部结果</button>
+          <template v-if="activeMode === 'exact'">
+            <h3>未找到对应问题</h3>
+            <p>请确认问题 ID 是否存在，或切换回关键词搜索。</p>
+          </template>
+          <template v-else>
+            <h3>{{ result.counts.all ? '该类型下暂无匹配内容' : '没有找到相关内容' }}</h3>
+            <p>试试其他关键词。</p>
+            <button v-if="result.counts.all" class="outline-button" type="button" @click="setType('all')">查看全部结果</button>
+          </template>
         </div>
 
         <template v-else>
@@ -254,6 +304,7 @@ onBeforeUnmount(() => controller?.abort())
             >
               <div class="result-topline">
                 <span :class="['kind-tag', `kind-${item.kind}`]"><FolderOpen v-if="item.kind === 'category'" :size="13" /><Layers3 v-else-if="item.kind === 'topic'" :size="13" /><CircleHelp v-else :size="13" />{{ kindLabels[item.kind] }}</span>
+                <span v-if="item.kind === 'question'" class="question-id-tag">#{{ item.id }}</span>
                 <span class="result-breadcrumb">{{ item.breadcrumb }}</span><ArrowUpRight class="result-open-icon" :size="17" aria-hidden="true" />
               </div>
               <h3>
@@ -288,8 +339,13 @@ onBeforeUnmount(() => controller?.abort())
 .search-hero { position: relative; overflow: hidden; padding: 52px 56px 46px; border: 1px solid #dbeafe; border-radius: 24px; background: radial-gradient(circle at 88% 8%, #dceafe 0, transparent 36%), linear-gradient(115deg, #eff6ff, #f5f3ff 78%, #f8fafc); }
 .search-hero::after { content: ''; position: absolute; width: 270px; height: 270px; right: -110px; bottom: -200px; border: 42px solid #dbeafe; border-radius: 50%; pointer-events: none; }
 .hero-eyebrow, .section-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .13em; color: #4f46e5; }
-.search-hero h1 { position: relative; z-index: 1; margin: 15px 0 12px; font-size: clamp(27px, 4vw, 41px); line-height: 1.3; letter-spacing: -.03em; }
+.search-hero-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.search-hero h1 { position: relative; z-index: 1; margin: 0; font-size: clamp(27px, 4vw, 41px); line-height: 1.3; letter-spacing: -.03em; }
 .search-hero h1 span { color: #4f46e5; }
+.mode-switch { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid #dbe3f0; border-radius: 11px; background: #ffffffcc; }
+.mode-button { padding: 6px 13px; border: 0; border-radius: 8px; background: transparent; color: #64748b; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; transition: background .15s, color .15s; }
+.mode-button:hover { color: #1e293b; }
+.mode-button.active { background: #2563eb; color: #fff; }
 .search-hero > p { margin: 0 0 28px; color: #64748b; font-size: 14px; line-height: 1.8; }
 .search-form { position: relative; z-index: 1; display: flex; align-items: center; gap: 12px; max-width: 820px; min-height: 64px; padding: 7px 8px 7px 22px; background: white; border: 1px solid #dbe3f0; border-radius: 14px; box-shadow: 0 9px 26px #47556912; }
 .search-form:focus-within { border-color: #818cf8; box-shadow: 0 0 0 3px #6366f119; }
@@ -323,6 +379,7 @@ onBeforeUnmount(() => controller?.abort())
 .kind-category { color: #1d4ed8; background: #dbeafe; }
 .kind-topic { color: #6d28d9; background: #ede9fe; }
 .kind-question { color: #047857; background: #d1fae5; }
+.question-id-tag { padding: 3px 8px; border-radius: 6px; background: #f1f5f9; color: #475569; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .result-breadcrumb { overflow: hidden; color: #94a3b8; font-size: 12px; text-overflow: ellipsis; }
 .result-card h3 { margin: 0 0 10px; font-size: 18px; line-height: 1.6; font-weight: 750; overflow-wrap: anywhere; }
 .result-description { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 3; -webkit-box-orient: vertical; margin: 0 0 19px; color: #64748b; font-size: 13px; line-height: 1.9; overflow-wrap: anywhere; white-space: pre-line; }
@@ -366,14 +423,14 @@ mark { padding: 0 2px; border-radius: 3px; color: #4338ca; background: #e0e7ff; 
   .pagination { gap: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .result-card, .result-list.refreshing { transition: none; }
+  .result-card, .result-list.refreshing, .mode-button { transition: none; }
   .loading-spinner { animation: none; }
 }
 
 /* 次要修饰让位于搜索框与结果。 */
 .search-hero { padding: 30px 34px 28px; border: 1px solid #e0e7f1; border-radius: 16px; background: #f5f8fe; }
 .search-hero::after { display: none; }
-.search-hero h1 { margin: 0 0 8px; font-size: 28px; }
+.search-hero h1 { margin: 0; font-size: 28px; }
 .search-hero > p { margin: 0 0 18px; font-size: 13px; line-height: 1.6; }
 .search-form { min-height: 54px; max-width: 700px; box-shadow: none; }
 .search-form button { background: #2563eb; }
@@ -394,7 +451,6 @@ mark { padding: 0 2px; border-radius: 3px; color: #4338ca; background: #e0e7ff; 
 .message-icon { width: 42px; height: 42px; font-size: 24px; }
 .message-panel h3 { font-size: 17px; }
 @media (max-width: 640px) { .search-hero { padding: 24px 18px; } .search-hero h1 { font-size: 24px; } .search-form { min-height: 51px; } .search-content { padding-top: 24px; } .result-card { padding: 16px; } }
-
 
 /* 搜索页：统一图标语言与结果卡片的交互层次。 */
 .search-hero h1, .result-heading h2 { display: flex; align-items: center; gap: 12px; }

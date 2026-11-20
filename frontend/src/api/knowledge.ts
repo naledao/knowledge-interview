@@ -87,6 +87,7 @@ export async function getTopic(id: number): Promise<KnowledgeTopic> {
   const { data } = await client.get<KnowledgeTopic>(`/topics/${id}`)
   return data
 }
+export type SearchMode = 'keyword' | 'exact'
 export type SearchKind = 'category' | 'topic' | 'question'
 export type SearchType = SearchKind | 'all'
 
@@ -104,6 +105,7 @@ export interface SearchHit {
 /** 与后端 KnowledgeSearchResult 保持一致；page 为服务端修正后的实际页码。 */
 export interface SearchResponse {
   keyword: string
+  mode: SearchMode
   terms: string[]
   type: SearchType
   page: number
@@ -117,6 +119,7 @@ export interface SearchResponse {
 
 export interface SearchParams {
   q: string
+  mode?: SearchMode
   type?: SearchType
   page?: number
   size?: number

@@ -60,7 +60,7 @@ class KnowledgeSearchToolsTests {
     }
 
     private static KnowledgeSearchResult emptyResult(int page, int size, String type) {
-        return new KnowledgeSearchResult("Redis", List.of("redis"), type, page, size,
+        return new KnowledgeSearchResult("Redis", "keyword", List.of("redis"), type, page, size,
                 0, 1, new KnowledgeSearchResult.Counts(0, 0, 0, 0), false, List.of());
     }
 }

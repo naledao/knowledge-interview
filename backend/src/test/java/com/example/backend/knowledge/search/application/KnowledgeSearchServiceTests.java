@@ -1,6 +1,7 @@
 package com.example.backend.knowledge.search.application;
 
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -41,18 +42,18 @@ class KnowledgeSearchServiceTests {
 
         KnowledgeSearchResult result = service.search("redis", null, 1, 10);
 
+        assertThat(result.mode()).isEqualTo("keyword");
         assertThat(result.items()).extracting(KnowledgeSearchResult.Hit::id).containsExactly(3L, 2L, 1L);
         assertThat(result.items().get(0).breadcrumb()).isEqualTo("知识分类");
         assertThat(result.items().get(2).answerMatch()).isTrue();
         assertThat(result.items().get(1).answerMatch()).isFalse();
         assertThat(result.counts()).isEqualTo(new KnowledgeSearchResult.Counts(3, 1, 0, 2));
-        assertThat(result.type()).isEqualTo("all");
     }
 
     @Test
-    void filtersByTypeButKeepsAllCountsAndClampsPage() {
+    void filtersByTypeWhileKeepingAllCountsAndClampingPage() {
         when(repository.search(eq(KnowledgeSearchKind.TOPIC), anyList(), anyString(), anyInt())).thenReturn(List.of(
-                candidate(KnowledgeSearchKind.TOPIC, 1, "Vue 响应式", null),
+                candidate(KnowledgeSearchKind.TOPIC, 1, "Vue", null),
                 candidate(KnowledgeSearchKind.TOPIC, 2, "Vue 路由", null),
                 candidate(KnowledgeSearchKind.TOPIC, 3, "Vue 组件", null)));
         when(repository.search(eq(KnowledgeSearchKind.CATEGORY), anyList(), anyString(), anyInt())).thenReturn(List.of(
@@ -80,6 +81,7 @@ class KnowledgeSearchServiceTests {
     void rejectsInvalidArguments() {
         assertThatThrownBy(() -> service.search("  ", "all", 1, 10)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> service.search("x".repeat(101), "all", 1, 10)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.search("vue", "invalid-mode", "all", 1, 10)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> service.search("vue", "answer", 1, 10)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> service.search("vue", "all", 0, 10)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> service.search("vue", "all", 1, 51)).isInstanceOf(IllegalArgumentException.class);
@@ -112,34 +114,52 @@ class KnowledgeSearchServiceTests {
     }
 
     @Test
-    void prioritizesExactQuestionIdMatchAndDeduplicates() {
-        KnowledgeSearchCandidate exact = new KnowledgeSearchCandidate(
-                KnowledgeSearchKind.QUESTION, 42, "什么是 MVCC？", "多版本并发控制原理", 1, 9, "MySQL / 事务与锁");
-        KnowledgeSearchCandidate textMatchedSameId = candidate(KnowledgeSearchKind.QUESTION, 42, "什么是 MVCC？", "包含 42 的文本");
-        KnowledgeSearchCandidate textMatchedOther = candidate(KnowledgeSearchKind.QUESTION, 7, "第 42 条优化建议", "正文");
-
-        when(repository.findQuestionById(42L)).thenReturn(java.util.Optional.of(exact));
+    void keywordModeDoesNotLookupQuestionById() {
         when(repository.search(eq(KnowledgeSearchKind.QUESTION), anyList(), anyString(), anyInt()))
-                .thenReturn(List.of(textMatchedSameId, textMatchedOther));
+                .thenReturn(List.of(candidate(KnowledgeSearchKind.QUESTION, 7, "第 42 条优化建议", "正文")));
 
-        KnowledgeSearchResult result = service.search("#42", "all", 1, 10);
+        KnowledgeSearchResult result = service.search("42", "keyword", "all", 1, 10);
 
-        assertThat(result.items()).extracting(KnowledgeSearchResult.Hit::id).containsExactly(42L, 7L);
-        assertThat(result.items().get(0).score()).isEqualTo(KnowledgeSearchService.EXACT_ID_SCORE);
-        assertThat(result.items().get(0).breadcrumb()).isEqualTo("MySQL / 事务与锁");
-        assertThat(result.counts().question()).isEqualTo(2);
-        assertThat(result.counts().all()).isEqualTo(2);
+        assertThat(result.mode()).isEqualTo("keyword");
+        assertThat(result.items()).extracting(KnowledgeSearchResult.Hit::id).containsExactly(7L);
+        verify(repository, never()).findQuestionById(anyLong());
     }
 
     @Test
-    void fallsBackToTextSearchWhenExactQuestionIdDoesNotExist() {
-        when(repository.findQuestionById(999L)).thenReturn(java.util.Optional.empty());
-        when(repository.search(eq(KnowledgeSearchKind.QUESTION), anyList(), anyString(), anyInt()))
-                .thenReturn(List.of(candidate(KnowledgeSearchKind.QUESTION, 12, "错误码 999 排查", null)));
+    void exactModeReturnsOnlyExactQuestionMatchWithoutTextSearch() {
+        KnowledgeSearchCandidate exact = new KnowledgeSearchCandidate(
+                KnowledgeSearchKind.QUESTION, 42, "什么是 MVCC？", "多版本并发控制原理", 1, 9, "MySQL / 事务与锁");
+        when(repository.findQuestionById(42L)).thenReturn(Optional.of(exact));
 
-        KnowledgeSearchResult result = service.search("999", "question", 1, 10);
+        KnowledgeSearchResult result = service.search("42", "exact", "all", 1, 10);
 
-        assertThat(result.items()).extracting(KnowledgeSearchResult.Hit::id).containsExactly(12L);
-        assertThat(result.counts().question()).isEqualTo(1);
+        assertThat(result.mode()).isEqualTo("exact");
+        assertThat(result.terms()).isEmpty();
+        assertThat(result.items()).hasSize(1);
+        assertThat(result.items().get(0).id()).isEqualTo(42L);
+        assertThat(result.items().get(0).breadcrumb()).isEqualTo("MySQL / 事务与锁");
+        assertThat(result.counts()).isEqualTo(new KnowledgeSearchResult.Counts(1, 0, 0, 1));
+        verify(repository, never()).search(any(), anyList(), anyString(), anyInt());
+    }
+
+    @Test
+    void exactModeReturnsEmptyWhenQuestionDoesNotExist() {
+        when(repository.findQuestionById(999L)).thenReturn(Optional.empty());
+
+        KnowledgeSearchResult result = service.search("999", "exact", "all", 1, 10);
+
+        assertThat(result.mode()).isEqualTo("exact");
+        assertThat(result.items()).isEmpty();
+        assertThat(result.counts()).isEqualTo(new KnowledgeSearchResult.Counts(0, 0, 0, 0));
+        verify(repository, never()).search(any(), anyList(), anyString(), anyInt());
+    }
+
+    @Test
+    void exactModeRejectsNonNumericQuestionId() {
+        assertThatThrownBy(() -> service.search("#42", "exact", "all", 1, 10))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.search("Redis", "exact", "all", 1, 10))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(repository);
     }
 }

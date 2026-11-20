@@ -5,10 +5,11 @@ import java.util.List;
 /**
  * 搜索接口响应：当前页结果、各类型命中数及分页信息。
  *
+ * @param mode      实际执行的搜索模式（keyword / exact）
  * @param terms     实际参与匹配的关键词，前端据此高亮，保证与后端匹配规则一致
  * @param truncated 某个类型的命中数达到候选上限，计数可能偏少
  */
-public record KnowledgeSearchResult(String keyword, List<String> terms, String type,
+public record KnowledgeSearchResult(String keyword, String mode, List<String> terms, String type,
                                     int page, int size, int total, int totalPages,
                                     Counts counts, boolean truncated, List<Hit> items) {
 
