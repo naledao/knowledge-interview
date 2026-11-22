@@ -38,3 +38,9 @@ export function rememberSearchMode(mode: SearchMode): void {
     // 存储不可用时忽略，刷新后回退到关键词搜索。
   }
 }
+
+/** 搜索模式下拉选项：label 用于弹层，short 用于收起时的触发按钮；三处搜索框共用。 */
+export const SEARCH_MODE_OPTIONS: { value: SearchMode; label: string; short: string }[] = [
+  { value: 'keyword', label: '关键词搜索', short: '关键词' },
+  { value: 'exact', label: '精确搜索（问题 ID）', short: '问题 ID' },
+]

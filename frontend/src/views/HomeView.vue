@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCategories, getTopics, type KnowledgeCategory, type KnowledgeTopic } from '../api/knowledge'
 import { markdownToPlainText } from '../utils/plainText'
 import { readRememberedPage, rememberPage } from '../utils/pageMemory'
+import { rememberedSearchMode, rememberSearchMode, SEARCH_MODE_OPTIONS } from '../utils/searchModeMemory'
+import SearchModeSelect from '../components/SearchModeSelect.vue'
+import type { SearchMode } from '../api/knowledge'
 import ListPagination from '../components/ListPagination.vue'
 import { ArrowRight, ArrowUpRight, Clock3, Layers3, Search, Shuffle, Sparkles } from '@lucide/vue'
 import SmartIcon from '../components/SmartIcon.vue'
@@ -12,6 +15,12 @@ import { useRandomQuestion } from '../composables/useRandomQuestion'
 const router = useRouter()
 const { loading: randomLoading, errorMessage: randomError, goRandom } = useRandomQuestion()
 const keyword = ref('')
+/** 首页搜索框的模式下拉：与顶部搜索框、搜索页共用同一份搜索模式（状态 A）。 */
+const searchModeModel = computed<SearchMode>({
+  get: () => rememberedSearchMode.value,
+  set: (value) => rememberSearchMode(value),
+})
+const searchPlaceholder = computed(() => (rememberedSearchMode.value === 'exact' ? '输入问题 ID（如 42）' : '搜索知识点、面试题'))
 const loading = ref(true)
 const error = ref('')
 const categories = ref<KnowledgeCategory[]>([])
@@ -68,7 +77,11 @@ function changeCategoryPage(page: number) {
 
 function search() {
   const q = keyword.value.trim()
-  void router.push({ name: 'search', query: q ? { q } : {} })
+  // 带上当前记住的搜索模式；关键词模式沿用省略 mode 的写法。
+  const query: Record<string, string> = {}
+  if (q) query.q = q
+  if (rememberedSearchMode.value !== 'keyword') query.mode = rememberedSearchMode.value
+  void router.push({ name: 'search', query })
 }
 
 onMounted(loadHome)
@@ -81,9 +94,10 @@ onMounted(loadHome)
       <h1 id="home-title">找到你要复习的知识点</h1>
       <p class="home-subtitle">直接搜索，按分类浏览，或随机来一题。</p>
       <form class="home-search" role="search" @submit.prevent="search">
-        <Search :size="20" aria-hidden="true" />
-        <input v-model="keyword" type="search" aria-label="搜索知识点" placeholder="搜索知识点、面试题" autocomplete="off" />
-        <button type="submit">开始搜索 <ArrowRight :size="17" aria-hidden="true" /></button>
+        <Search class="home-search-icon" :size="20" aria-hidden="true" />
+        <SearchModeSelect v-model="searchModeModel" :options="SEARCH_MODE_OPTIONS" variant="home" />
+        <input v-model="keyword" type="search" :inputmode="rememberedSearchMode === 'exact' ? 'numeric' : 'search'" aria-label="搜索知识点" :placeholder="searchPlaceholder" autocomplete="off" />
+        <button type="submit"><span><span class="home-search-verb">开始</span>搜索</span><ArrowRight class="home-search-arrow" :size="17" aria-hidden="true" /></button>
       </form>
       <div class="home-random">
         <button type="button" class="random-button" :disabled="randomLoading" @click="goRandom()">
@@ -142,6 +156,12 @@ onMounted(loadHome)
 .home-search input::placeholder { color: #98a5b6; }
 .home-search button { flex-shrink: 0; padding: 12px 24px; border: 0; border-radius: 8px; background: #2563eb; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
 .home-search button:hover { background: #1d4ed8; }
+@media (max-width: 520px) {
+  .home-search .home-search-icon, .home-search .home-search-arrow, .home-search .home-search-verb { display: none; }
+  .home-search { gap: 6px; padding-left: 10px; }
+  .home-search input { padding-left: 4px; }
+  .home-search button { padding: 11px 18px; }
+}
 .home-section { margin-top: 47px; }
 .home-section-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px; }
 .home-section-heading h2 { margin: 0; font-size: 22px; line-height: 1.35; font-weight: 750; }

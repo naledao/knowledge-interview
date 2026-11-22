@@ -36,8 +36,6 @@ button, input { font: inherit; }
 .header-search button { flex-shrink: 0; padding: 7px 12px; border: 0; border-radius: 8px; background: #2563eb; color: white; font-size: 12px; font-weight: 700; cursor: pointer; }
 .header-search button:hover { background: #1d4ed8; }
 .header-search { min-width: 215px; }
-.header-search .search-mode-select { flex-shrink: 0; appearance: none; -webkit-appearance: none; padding: 3px 20px 3px 8px; border: 0; border-radius: 6px; outline: 0; background: #e0e7ff url(data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2010%206%27%3E%3Cpath%20d=%27M1%201l4%204%204-4%27%20fill=%27none%27%20stroke=%27%23475569%27%20stroke-width=%271.6%27/%3E%3C/svg%3E) no-repeat right 6px center / 9px; color: #3730a3; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
-.header-search .search-mode-select:focus-visible { box-shadow: 0 0 0 2px #93c5fd; }
 .header-actions { display: flex; align-items: center; flex-shrink: 0; gap: 10px; }
 .settings-link { display: inline-flex; align-items: center; gap: 7px; padding: 10px 12px; border-radius: 10px; color: #475569; font-size: 13px; font-weight: 600; white-space: nowrap; }
 .settings-link:hover, .settings-link.is-active { background: #eff6ff; color: #2563eb; text-decoration: none; }

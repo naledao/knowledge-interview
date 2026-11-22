@@ -3,7 +3,8 @@ import { Search, FolderOpen, Layers3, CircleHelp, SearchX, AlertCircle, ArrowUpR
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter, type LocationQueryRaw } from 'vue-router'
 import { useCachedRoute } from '../router/useCachedRoute'
-import { rememberedSearchMode, rememberSearchMode } from '../utils/searchModeMemory'
+import { rememberedSearchMode, rememberSearchMode, SEARCH_MODE_OPTIONS } from '../utils/searchModeMemory'
+import SearchModeSelect from '../components/SearchModeSelect.vue'
 import {
   errorDetail, fetchHotKeywords, searchKnowledge,
   type SearchHit, type SearchKind, type SearchMode, type SearchResponse, type SearchType,
@@ -16,7 +17,6 @@ import {
 const PAGE_SIZE = 8
 const MAX_KEYWORD_LENGTH = 100
 const MODES: SearchMode[] = ['keyword', 'exact']
-const modeLabels: Record<SearchMode, string> = { keyword: '关键词搜索', exact: '精确搜索（问题 ID）' }
 const TYPES: SearchType[] = ['all', 'category', 'topic', 'question']
 const typeLabels: Record<SearchType, string> = { all: '全部', category: '分类', topic: '主题', question: '问题' }
 const kindLabels: Record<SearchKind, string> = { category: '知识分类', topic: '学习主题', question: '面试问题' }
@@ -237,9 +237,7 @@ onBeforeUnmount(() => controller?.abort())
       </p>
       <form class="search-form" role="search" @submit.prevent="submitSearch">
         <Search class="search-symbol" :size="24" aria-hidden="true" />
-        <select v-model="modeModel" class="search-mode-select" aria-label="搜索模式">
-          <option v-for="mode in MODES" :key="mode" :value="mode">{{ modeLabels[mode] }}</option>
-        </select>
+        <SearchModeSelect v-model="modeModel" :options="SEARCH_MODE_OPTIONS" variant="form" />
         <input
           v-model="searchInput"
           type="search"
@@ -453,10 +451,6 @@ mark { padding: 0 2px; border-radius: 3px; color: #4338ca; background: #e0e7ff; 
 .search-form { min-height: 54px; max-width: 700px; box-shadow: none; }
 .search-form button { background: #2563eb; }
 .search-form button:hover { background: #1d4ed8; }
-.search-form .search-mode-select { flex-shrink: 0; appearance: none; -webkit-appearance: none; padding: 9px 30px 9px 13px; border: 1px solid #dbe3f0; border-radius: 10px; outline: 0; background: #f1f5f9 url(data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2010%206%27%3E%3Cpath%20d=%27M1%201l4%204%204-4%27%20fill=%27none%27%20stroke=%27%23475569%27%20stroke-width=%271.6%27/%3E%3C/svg%3E) no-repeat right 11px center / 11px; color: #1e293b; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
-.search-form .search-mode-select:hover { border-color: #c7d2e3; }
-.search-form .search-mode-select:focus-visible { border-color: #818cf8; box-shadow: 0 0 0 3px #6366f119; }
-@media (max-width: 640px) { .search-form .search-mode-select { max-width: 128px; padding: 7px 24px 7px 8px; font-size: 12px; background-position: right 8px center; } }
 .suggestions { margin-top: 14px; }
 .search-content { padding-top: 28px; }
 .result-heading { margin-bottom: 18px; }
@@ -487,4 +481,10 @@ mark { padding: 0 2px; border-radius: 3px; color: #4338ca; background: #e0e7ff; 
 /* 搜索卡片：滚动结果列表时固定在顶部栏下方；top 需与全局顶部栏高度一致（桌面 74px，宽度 ≤760px 时 62px）。 */
 .search-hero { position: sticky; top: 74px; z-index: 20; box-shadow: 0 8px 22px rgba(30, 41, 59, .08); }
 @media (max-width: 760px) { .search-hero { top: 62px; } }
+@media (max-width: 640px) {
+  .search-form .search-symbol { display: none; }
+  .search-form { gap: 6px; padding-left: 12px; }
+  .search-form input { padding-left: 4px; }
+  .search-form button[type="submit"] { padding: 11px 18px; }
+}
 </style>
