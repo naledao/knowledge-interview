@@ -2,13 +2,6 @@ plugins {
     id 'com.android.application'
 }
 
-def aiLocal = new Properties()
-def aiLocalFile = rootProject.file('ai.local.properties')
-if (aiLocalFile.exists()) {
-    aiLocalFile.withInputStream { aiLocal.load(it) }
-}
-def aiUrl = System.getenv('KNOWLEDGE_AI_URL') ?: aiLocal.getProperty('ai.url', '')
-
 android {
     buildFeatures {
         buildConfig true
@@ -19,7 +12,6 @@ android {
     defaultConfig {
         applicationId 'com.knowledgeinterview.android'
         minSdk 24
-        buildConfigField 'String', 'AI_URL', groovy.json.JsonOutput.toJson(aiUrl)
         targetSdk 34
         versionCode = (project.findProperty('androidVersionCode') ?: '1').toString().toInteger()
         versionName = (project.findProperty('androidVersionName') ?: '1.0.0').toString()

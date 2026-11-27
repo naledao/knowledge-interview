@@ -2,7 +2,6 @@ package com.knowledgeinterview.android;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
@@ -26,9 +25,6 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
 /** AI 模块使用独立 WebView，与知识题库的本地资源及 API 拦截隔离。 */
 public class AiActivity extends Activity {
@@ -40,7 +36,7 @@ public class AiActivity extends Activity {
     private boolean applyingProxy;
     private int proxyGeneration;
     private LinearLayout errorPanel;
-    private String configuredUrl;
+    private static final String AI_URL = "https://frp.kangnasi.xyz:4400/#t=c0b77c9dca887f35c7eca68a6da3f520";
     private android.app.Dialog authDialog;
 
     @Override
@@ -49,7 +45,6 @@ public class AiActivity extends Activity {
         super.onCreate(state);
         getWindow().setStatusBarColor(Color.WHITE);
         getWindow().setNavigationBarColor(Color.WHITE);
-        configuredUrl = readAddress();
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -66,7 +61,6 @@ public class AiActivity extends Activity {
         title.setGravity(Gravity.CENTER);
         toolbar.addView(title, new LinearLayout.LayoutParams(0, dp(56), 1));
         toolbar.addView(action("刷新", v -> reloadPage()));
-        toolbar.addView(action("地址", v -> showAddressDialog()));
         root.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(56)));
         View separator = new View(this);
         separator.setBackgroundColor(Color.rgb(226, 233, 245));
@@ -126,13 +120,12 @@ public class AiActivity extends Activity {
         errorPanel.setBackgroundColor(Color.WHITE);
         TextView message = new TextView(this);
         errorMessage = message;
-        message.setText("暂时无法连接 AI 服务\n请检查网络或访问地址后重试");
+        message.setText("暂时无法连接 AI 服务\n请检查网络或代理设置后重试");
         message.setGravity(Gravity.CENTER);
         message.setTextSize(16);
         message.setTextColor(Color.rgb(71, 85, 105));
         errorPanel.addView(message);
         errorPanel.addView(action("重新连接", v -> loadAddress()));
-        errorPanel.addView(action("修改访问地址", v -> showAddressDialog()));
         errorPanel.setVisibility(View.GONE);
         content.addView(errorPanel, new FrameLayout.LayoutParams(-1, -1));
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
@@ -166,54 +159,6 @@ public class AiActivity extends Activity {
         Uri uri = Uri.parse(address);
         return "https".equalsIgnoreCase(uri.getScheme()) && AI_HOST.equalsIgnoreCase(uri.getHost())
                 && uri.getPort() == 4400 && uri.getUserInfo() == null;
-    }
-
-    private File addressFile() {
-        return new File(getNoBackupFilesDir(), "ai-address.txt");
-    }
-
-    private String readAddress() {
-        try {
-            File file = addressFile();
-            if (file.isFile()) {
-                // 使用 API 24 支持的文件读取方式。
-                try (java.io.FileInputStream input = new java.io.FileInputStream(file);
-                     java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream()) {
-                    byte[] buffer = new byte[1024];
-                    int count;
-                    while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
-                    String value = output.toString("UTF-8").trim();
-                    if (isAllowed(value)) return value;
-                }
-            }
-        } catch (IOException ignored) { }
-        return isAllowed(BuildConfig.AI_URL) ? BuildConfig.AI_URL : "";
-    }
-
-    private void showAddressDialog() {
-        EditText input = new EditText(this);
-        input.setSingleLine(true);
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        input.setHint("https://" + AI_HOST + ":4400/…");
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("AI 服务地址")
-                .setMessage("请输入完整访问链接，包含访问令牌（如有）。")
-                .setView(input).setNegativeButton("取消", null).setPositiveButton("连接", null).create();
-        dialog.setOnShowListener(v -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
-            String address = input.getText().toString().trim();
-            if (!isAllowed(address)) {
-                input.setError("请输入指定 AI 服务的 HTTPS 地址");
-                return;
-            }
-            try (java.io.FileOutputStream output = new java.io.FileOutputStream(addressFile())) {
-                output.write(address.getBytes(StandardCharsets.UTF_8));
-            } catch (IOException exception) {
-                Toast.makeText(this, "地址保存失败，本次仍可使用", Toast.LENGTH_SHORT).show();
-            }
-            configuredUrl = address;
-            dialog.dismiss();
-            loadAddress();
-        }));
-        dialog.show();
     }
 
     private void showAuthenticationDialog(HttpAuthHandler handler, String host, String realm) {
@@ -394,7 +339,7 @@ public class AiActivity extends Activity {
         Runnable complete = () -> {
             if (isFinishing() || isDestroyed() || generation != proxyGeneration) return;
             applyingProxy = false;
-            errorMessage.setText("暂时无法连接 AI 服务\n请检查网络或访问地址后重试");
+            errorMessage.setText("暂时无法连接 AI 服务\n请检查网络或代理设置后重试");
             errorPanel.setVisibility(View.GONE);
             progress.setVisibility(View.GONE);
             webView.getSettings().setBlockNetworkLoads(false);
@@ -446,11 +391,7 @@ public class AiActivity extends Activity {
     }
 
     private void openConfiguredAddress() {
-        if (isAllowed(configuredUrl)) webView.loadUrl(configuredUrl);
-        else {
-            showLoadError();
-            showAddressDialog();
-        }
+        webView.loadUrl(AI_URL);
     }
 
     private void reloadPage() {
