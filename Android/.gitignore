@@ -3,6 +3,7 @@
 build/
 **/build/
 local.properties
+ai.local.properties
 *.iml
 captures/
 app/.classpath

@@ -99,6 +99,16 @@ public final class TrojanProxyManager {
         return running && boundPort > 0;
     }
 
+    /** 复用当前本地 HTTP 代理；仅在已启用且尚未运行时启动。 */
+    public static int ensureLocalProxyPort(Context context) {
+        synchronized (LOCK) {
+            Config config = loadConfig(context);
+            if (!config.enabled) return 0;
+            if (!isRunning()) start(config);
+            return isRunning() ? boundPort : 0;
+        }
+    }
+
     public static String getLastError() {
         return lastError;
     }
@@ -277,6 +287,9 @@ public final class TrojanProxyManager {
             if ("CONNECT".equalsIgnoreCase(method)) {
                 clientOut.write("HTTP/1.1 200 Connection Established\r\n\r\n".getBytes(StandardCharsets.ISO_8859_1));
                 clientOut.flush();
+                if ("CONNECT".equalsIgnoreCase(method) && "frp.kangnasi.xyz".equalsIgnoreCase(targetHost) && targetPort == 4400) {
+                    Log.i(TAG, "AI HTTPS CONNECT tunnel established");
+                }
             } else {
                 upOut.write(headerBuf.toByteArray());
                 upOut.flush();

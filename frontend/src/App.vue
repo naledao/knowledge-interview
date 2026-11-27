@@ -4,7 +4,7 @@ import { RouterLink, RouterView, useRoute, useRouter, type LocationQueryRaw } fr
 import { rememberedSearchMode, rememberSearchMode, SEARCH_MODE_OPTIONS } from './utils/searchModeMemory'
 import SearchModeSelect from './components/SearchModeSelect.vue'
 import type { SearchMode } from './api/knowledge'
-import { BookOpenText, House, Compass, Search, KeyRound, Menu, X, RefreshCw, ServerCog, ChevronRight } from '@lucide/vue'
+import { BookOpenText, House, Compass, Search, KeyRound, Menu, X, RefreshCw, ServerCog, ChevronRight, Bot } from '@lucide/vue'
 
 /** 全站导航：PC 展示横向导航与快捷搜索，移动端使用可收起菜单。 */
 const route = useRoute()
@@ -96,6 +96,7 @@ onUnmounted(() => {
         <nav class="desktop-nav" aria-label="主导航">
           <RouterLink to="/" :class="{ 'is-active': activeSection === 'home' }"><House :size="17" />首页</RouterLink>
           <RouterLink to="/search" :class="{ 'is-active': activeSection === 'explore' }"><Compass :size="17" />探索</RouterLink>
+          <a v-if="isNativeAndroid" href="knowledgeinterview://settings/ai" @click="closeMenu"><Bot :size="17" />AI 助手</a>
         </nav>
 
         <form class="header-search" role="search" @submit.prevent="submitSearch">
@@ -107,6 +108,7 @@ onUnmounted(() => {
         </form>
 
         <div class="header-actions">
+          <a v-if="isNativeAndroid" href="knowledgeinterview://settings/ai" class="mobile-menu-toggle native-ai-shortcut" aria-label="AI 助手" title="AI 助手" @click="closeMenu"><Bot :size="22" aria-hidden="true" /></a>
           <button type="button" class="page-refresh-button" :class="{ 'is-refreshing': pageRefreshing }" aria-label="刷新当前页面" title="刷新当前页面" @click="refreshPage">
             <RefreshCw :size="19" aria-hidden="true" />
           </button>
@@ -130,6 +132,7 @@ onUnmounted(() => {
         <nav v-if="menuOpen" id="mobile-navigation" class="mobile-nav" aria-label="移动端导航">
           <RouterLink to="/" :class="{ 'is-active': activeSection === 'home' }" @click="closeMenu"><span class="mobile-nav-label"><House :size="18" />首页</span><ChevronRight :size="17" aria-hidden="true" /></RouterLink>
           <RouterLink to="/search" :class="{ 'is-active': activeSection === 'explore' }" @click="closeMenu"><span class="mobile-nav-label"><Compass :size="18" />探索</span><ChevronRight :size="17" aria-hidden="true" /></RouterLink>
+          <a v-if="isNativeAndroid" href="knowledgeinterview://settings/ai" @click="closeMenu"><span class="mobile-nav-label"><Bot :size="18" />AI 助手</span><ChevronRight :size="17" aria-hidden="true" /></a>
           <RouterLink to="/api-key" :class="{ 'is-active': activeSection === 'settings' }" @click="closeMenu"><span class="mobile-nav-label"><KeyRound :size="18" />设置</span><ChevronRight :size="17" aria-hidden="true" /></RouterLink>
           <a v-if="isNativeAndroid" href="knowledgeinterview://settings/backend" @click="closeMenu">服务器设置<span aria-hidden="true">→</span></a>
           <a v-if="isNativeAndroid" href="knowledgeinterview://settings/proxy" @click="closeMenu">代理设置<span aria-hidden="true">→</span></a>

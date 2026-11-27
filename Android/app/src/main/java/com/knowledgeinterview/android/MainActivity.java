@@ -82,6 +82,10 @@ public class MainActivity extends Activity {
                         && "https".equalsIgnoreCase(origin.getScheme()) && HOST.equalsIgnoreCase(origin.getHost())
                         && "knowledgeinterview".equalsIgnoreCase(uri.getScheme())
                         && "settings".equalsIgnoreCase(uri.getHost())) {
+                    if ("/ai".equals(uri.getPath())) {
+                        startActivity(new android.content.Intent(MainActivity.this, AiActivity.class));
+                        return true;
+                    }
                     if ("/backend".equals(uri.getPath())) {
                         showBackendAddressDialog();
                         return true;

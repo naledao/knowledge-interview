@@ -4,4 +4,10 @@
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">true</item>
     </style>
+    <style name="Theme.KnowledgeInterview.AiDialog" parent="android:style/Theme.Material.Light.Dialog">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#315ED2</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
 </resources>
