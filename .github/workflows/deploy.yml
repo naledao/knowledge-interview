@@ -92,8 +92,10 @@ jobs:
           ssh_options=(-i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15)
           remote="${DEPLOY_USER}@${DEPLOY_HOST}"
           target="/root/service/${REPO_NAME}"
-          ssh "${ssh_options[@]}" -p "$port" "$remote" "mkdir -p '$target'"
-          # 使用 rsync --append-verify 保留已传数据，重连后续传并验证已有内容。
+          upload_dir="$target/.deploy-upload"
+          upload_jar="$upload_dir/app.jar"
+          ssh "${ssh_options[@]}" -p "$port" "$remote" "mkdir -p -- '$upload_dir'"
+          # 使用已部署的 app.jar 作为增量基准，未传完的数据留在独立目录供重试。
           # 连接中断最多重试 5 次，每次间隔 10 秒。
           if ! command -v rsync >/dev/null 2>&1; then
             echo 'GitHub Runner 缺少 rsync' >&2
@@ -104,8 +106,10 @@ jobs:
           uploaded=false
           for attempt in 1 2 3 4 5; do
             echo "=== JAR 上传尝试 $attempt/5 ==="
-            if rsync -av --partial --append-verify --info=progress2 --timeout=60 -e "$rsync_ssh" "$RUNNER_TEMP/app.jar" "$remote:$target/app.jar.next"; then
-              if remote_hash_output="$(ssh "${ssh_options[@]}" -p "$port" "$remote" "sha256sum '$target/app.jar.next'")"; then
+            if rsync -av --checksum --no-whole-file --partial-dir=.rsync-partial \
+                --copy-dest="$target" --info=progress2 --stats --timeout=60 \
+                -e "$rsync_ssh" "$RUNNER_TEMP/app.jar" "$remote:$upload_dir/"; then
+              if remote_hash_output="$(ssh "${ssh_options[@]}" -p "$port" "$remote" "sha256sum -- '$upload_jar'")"; then
                 remote_sha="${remote_hash_output%% *}"
                 if [[ "$local_sha" == "$remote_sha" ]]; then
                   uploaded=true
@@ -113,7 +117,7 @@ jobs:
                   break
                 fi
                 echo 'SHA-256 校验不一致，准备重新传输' >&2
-                ssh "${ssh_options[@]}" -p "$port" "$remote" "rm -f '$target/app.jar.next'" || true
+                ssh "${ssh_options[@]}" -p "$port" "$remote" "rm -f -- '$upload_jar'" || true
               else
                 echo '远程 SHA-256 校验连接失败，稍后重试' >&2
               fi
@@ -126,4 +130,6 @@ jobs:
             echo 'JAR 上传重试 5 次仍失败，未执行部署' >&2
             exit 1
           fi
-          ssh "${ssh_options[@]}" -p "$port" "$remote" "bash -s -- '$REPO_NAME' '${DEPLOY_APP_PORT:-8080}'" < .github/scripts/deploy-remote.sh
+          ssh "${ssh_options[@]}" -p "$port" "$remote" \
+            "mv -f -- '$upload_jar' '$target/app.jar.next' && bash -s -- '$REPO_NAME' '${DEPLOY_APP_PORT:-8080}'" \
+            < .github/scripts/deploy-remote.sh

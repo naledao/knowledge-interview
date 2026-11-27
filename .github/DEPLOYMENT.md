@@ -7,7 +7,9 @@
 1. Maven 先打包 Spring Boot 后端（跳过原有 Windows 专用 npm.cmd 构建步骤）。
 2. 执行 `npm ci` 和 `npm run build` 构建 Vue 前端。
 3. 再次打包后端，将 `frontend/dist` 嵌入 JAR，由 Spring Boot 统一托管。
-4. 通过 SSH + rsync 断点续传上传 JAR（失败最多重试 5 次，并通过 SHA-256 校验），停止旧进程，使用 `nohup` 启动新进程，健康检查失败时尝试恢复上一版本。
+4. 通过 SSH + rsync 增量上传 JAR，以服务器上已部署的 `app.jar` 为基准。上传暂存于 `.deploy-upload/`，失败最多重试 5 次，续传数据保存在 `.rsync-partial/` 子目录。SHA-256 校验通过后才将产物交给部署脚本。部署脚本停止旧进程并通过 `nohup` 启动新进程，健康检查失败时尝试恢复上一版本。
+
+首次部署没有基准文件，会上传完整 JAR。查看 `rsync` 日志中的 `Total bytes sent` 判断实际发送的字节数，进度百分比按完整 JAR 的大小计算。
 
 ## GitHub Actions Secrets
 
