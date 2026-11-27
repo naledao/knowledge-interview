@@ -54,7 +54,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         appUpdater = new AppUpdater(this);
-        TrojanProxyManager.ensureStartedIfEnabled(this);
+        TrojanProxyManager.ensureLocalProxyPort(this);
         webView = new WebView(this);
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -83,7 +83,9 @@ public class MainActivity extends Activity {
                         && "knowledgeinterview".equalsIgnoreCase(uri.getScheme())
                         && "settings".equalsIgnoreCase(uri.getHost())) {
                     if ("/ai".equals(uri.getPath())) {
-                        startActivity(new android.content.Intent(MainActivity.this, AiActivity.class));
+                        android.content.Intent intent = new android.content.Intent(MainActivity.this, AiActivity.class);
+                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                        startActivity(intent);
                         return true;
                     }
                     if ("/backend".equals(uri.getPath())) {
@@ -229,7 +231,9 @@ public class MainActivity extends Activity {
 
         secondaryBtn.setOnClickListener(v -> {
             if (cfg.enabled) {
+                AiActivity.onProxyConfigurationChanging();
                 TrojanProxyManager.stop(this);
+                AiActivity.onProxyConfigurationChanged();
                 Toast.makeText(this, "已停用内置 Trojan 代理", Toast.LENGTH_SHORT).show();
             }
             dialog.dismiss();
@@ -250,8 +254,10 @@ public class MainActivity extends Activity {
                     password.isEmpty() ? TrojanProxyManager.DEFAULT_PASSWORD : password,
                     sni.isEmpty() ? TrojanProxyManager.DEFAULT_SNI : sni
             );
+            AiActivity.onProxyConfigurationChanging();
             TrojanProxyManager.saveConfig(this, next);
             TrojanProxyManager.start(next);
+            AiActivity.onProxyConfigurationChanged();
             dialog.dismiss();
             if (TrojanProxyManager.isRunning()) {
                 Toast.makeText(this, "内置 Trojan 代理已启用", Toast.LENGTH_SHORT).show();
@@ -521,7 +527,7 @@ public class MainActivity extends Activity {
     @Override
     public void onBackPressed() {
         if (webView != null && webView.canGoBack()) webView.goBack();
-        else super.onBackPressed();
+        else moveTaskToBack(true);
     }
 
     @Override

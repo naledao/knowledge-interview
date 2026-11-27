@@ -38,11 +38,19 @@ public class AiActivity extends Activity {
     private LinearLayout errorPanel;
     private static final String AI_URL = "https://frp.kangnasi.xyz:4400/#t=c0b77c9dca887f35c7eca68a6da3f520";
     private android.app.Dialog authDialog;
+    private AiCredentialStore credentialStore;
+    private AiCredentialStore.Credentials pendingCredentials;
+    private boolean authAttempted;
+    private boolean mainLoadFailed;
+    private int appliedProxyPort = -1;
+    private boolean proxyRouteDirty;
+    private static java.lang.ref.WeakReference<AiActivity> activeInstance = new java.lang.ref.WeakReference<>(null);
 
     @Override
     @SuppressLint("SetJavaScriptEnabled")
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        credentialStore = new AiCredentialStore(this);
         getWindow().setStatusBarColor(Color.WHITE);
         getWindow().setNavigationBarColor(Color.WHITE);
 
@@ -52,7 +60,7 @@ public class AiActivity extends Activity {
         LinearLayout toolbar = new LinearLayout(this);
         toolbar.setGravity(Gravity.CENTER_VERTICAL);
         toolbar.setPadding(dp(4), 0, dp(4), 0);
-        toolbar.addView(action("‹ 题库", v -> finish()));
+        toolbar.addView(action("‹ 题库", v -> returnToKnowledge()));
         TextView title = new TextView(this);
         title.setText("AI 助手");
         title.setTextColor(Color.rgb(15, 23, 42));
@@ -88,28 +96,47 @@ public class AiActivity extends Activity {
 
             @Override
             public void onReceivedHttpAuthRequest(WebView view, HttpAuthHandler handler, String host, String realm) {
-                showAuthenticationDialog(handler, host, realm);
+                handleAuthentication(handler, host, realm);
             }
 
             @Override
             public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                mainLoadFailed = false;
                 errorPanel.setVisibility(View.GONE);
                 progress.setVisibility(View.VISIBLE);
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
+                if (!mainLoadFailed && isAllowed(url) && pendingCredentials != null && authDialog == null) {
+                    AiCredentialStore.Credentials accepted = pendingCredentials;
+                    pendingCredentials = null;
+                    if (!credentialStore.save(accepted)) {
+                        Toast.makeText(AiActivity.this, "登录成功，但无法安全保存账号，下次可能需要重新登录", Toast.LENGTH_LONG).show();
+                    }
+                }
                 progress.setVisibility(View.GONE);
             }
 
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                if (request.isForMainFrame()) showLoadError();
+                if (request.isForMainFrame()) {
+                    mainLoadFailed = true;
+                    pendingCredentials = null;
+                    showLoadError();
+                }
             }
 
             @Override
             public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse response) {
-                if (request.isForMainFrame()) showLoadError();
+                if (request.isForMainFrame() && isAllowed(request.getUrl().toString()) && response.getStatusCode() == 401 && authAttempted) {
+                    credentialStore.clear();
+                }
+                if (request.isForMainFrame()) {
+                    mainLoadFailed = true;
+                    pendingCredentials = null;
+                    showLoadError();
+                }
             }
         });
         content.addView(webView, new FrameLayout.LayoutParams(-1, -1));
@@ -135,6 +162,7 @@ public class AiActivity extends Activity {
         content.addView(progress, new FrameLayout.LayoutParams(-1, dp(3), Gravity.TOP));
         root.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
+        activeInstance = new java.lang.ref.WeakReference<>(this);
 
         applyNetworkRoute(() -> {
             if (state == null || webView.restoreState(state) == null) openConfiguredAddress();
@@ -159,6 +187,31 @@ public class AiActivity extends Activity {
         Uri uri = Uri.parse(address);
         return "https".equalsIgnoreCase(uri.getScheme()) && AI_HOST.equalsIgnoreCase(uri.getHost())
                 && uri.getPort() == 4400 && uri.getUserInfo() == null;
+    }
+
+    private void handleAuthentication(HttpAuthHandler handler, String host, String realm) {
+        if (!(AI_HOST.equalsIgnoreCase(host) || (AI_HOST + ":4400").equalsIgnoreCase(host))
+                || !"Antigravity".equals(realm) || isFinishing() || isDestroyed()) {
+            handler.cancel();
+            return;
+        }
+        if (authDialog != null && authDialog.isShowing()) {
+            handler.cancel();
+            return;
+        }
+        if (!authAttempted) {
+            AiCredentialStore.Credentials saved = credentialStore.read();
+            if (saved != null) {
+                authAttempted = true;
+                handler.proceed(saved.username, saved.password);
+                return;
+            }
+        } else {
+            // 同一加载过程再次收到认证挑战，停止自动重试并要求重新输入。
+            pendingCredentials = null;
+            credentialStore.clear();
+        }
+        showAuthenticationDialog(handler, host, realm);
     }
 
     private void showAuthenticationDialog(HttpAuthHandler handler, String host, String realm) {
@@ -203,13 +256,15 @@ public class AiActivity extends Activity {
         authAdd(card, description, 18, -2);
         authAdd(card, authText(context, "用户名", 13, Color.rgb(51, 65, 85), true), 22, -2);
         EditText username = authInput(context, "请输入用户名", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        username.setSaveEnabled(false);
         username.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_NEXT);
         authAdd(card, username, 8, dp(48));
         authAdd(card, authText(context, "密码", 13, Color.rgb(51, 65, 85), true), 16, -2);
         EditText password = authInput(context, "请输入密码", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        password.setSaveEnabled(false);
         password.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
         authAdd(card, password, 8, dp(48));
-        TextView hint = authText(context, "账号密码仅用于当前 AI 服务认证。", 12, Color.rgb(100, 116, 139), false);
+        TextView hint = authText(context, "登录成功后将加密保存在本机，下次自动登录。", 12, Color.rgb(100, 116, 139), false);
         authAdd(card, hint, 14, -2);
 
         LinearLayout actions = new LinearLayout(context);
@@ -237,6 +292,8 @@ public class AiActivity extends Activity {
             if (password.getText().length() == 0) { password.setError("请输入密码"); password.requestFocus(); return; }
             String account = username.getText().toString();
             String secret = password.getText().toString();
+            authAttempted = true;
+            pendingCredentials = new AiCredentialStore.Credentials(account, secret);
             dialog.dismiss();
             progress.setVisibility(View.VISIBLE);
             handler.proceed(account, secret);
@@ -331,14 +388,21 @@ public class AiActivity extends Activity {
     private void applyNetworkRoute(Runnable ready) {
         if (applyingProxy || isFinishing() || isDestroyed()) return;
         applyingProxy = true;
+        proxyRouteDirty = false;
         int generation = ++proxyGeneration;
         webView.getSettings().setBlockNetworkLoads(true);
         progress.setVisibility(View.VISIBLE);
         boolean enabled = TrojanProxyManager.loadConfig(this).enabled;
         boolean supported = androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.PROXY_OVERRIDE);
+        final int routePort = enabled ? TrojanProxyManager.ensureLocalProxyPort(this) : 0;
         Runnable complete = () -> {
             if (isFinishing() || isDestroyed() || generation != proxyGeneration) return;
             applyingProxy = false;
+            if (proxyRouteDirty) {
+                applyNetworkRoute(ready);
+                return;
+            }
+            appliedProxyPort = routePort;
             errorMessage.setText("暂时无法连接 AI 服务\n请检查网络或代理设置后重试");
             errorPanel.setVisibility(View.GONE);
             progress.setVisibility(View.GONE);
@@ -352,7 +416,7 @@ public class AiActivity extends Activity {
         }
         try {
             if (enabled) {
-                int port = TrojanProxyManager.ensureLocalProxyPort(this);
+                int port = routePort;
                 if (port <= 0) {
                     proxyError("内置代理启动失败，请返回题库检查代理设置后重试。");
                     return;
@@ -380,6 +444,7 @@ public class AiActivity extends Activity {
 
     private void proxyError(String message) {
         ++proxyGeneration;
+        appliedProxyPort = -1;
         applyingProxy = false;
         webView.getSettings().setBlockNetworkLoads(true);
         errorMessage.setText(message + "\n代理开启时不会自动回退直连。");
@@ -391,19 +456,62 @@ public class AiActivity extends Activity {
     }
 
     private void openConfiguredAddress() {
+        authAttempted = false;
+        pendingCredentials = null;
+        mainLoadFailed = false;
         webView.loadUrl(AI_URL);
     }
 
     private void reloadPage() {
         if (errorPanel.getVisibility() == View.VISIBLE || webView.getUrl() == null) loadAddress();
-        else applyNetworkRoute(() -> webView.reload());
+        else applyNetworkRoute(() -> {
+            authAttempted = false;
+            pendingCredentials = null;
+            mainLoadFailed = false;
+            webView.reload();
+        });
+    }
+
+    /** 将题库切换至前台，不结束 AI Activity，保留原 WebView 和会话。 */
+    private void returnToKnowledge() {
+        android.view.inputmethod.InputMethodManager keyboard = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (keyboard != null) keyboard.hideSoftInputFromWindow(webView.getWindowToken(), 0);
+        android.content.Intent intent = new android.content.Intent(this, MainActivity.class);
+        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
+    }
+
+    static void onProxyConfigurationChanging() {
+        AiActivity activity = activeInstance.get();
+        if (activity == null || activity.isFinishing() || activity.isDestroyed()) return;
+        activity.proxyRouteDirty = true;
+        activity.webView.getSettings().setBlockNetworkLoads(true);
+    }
+
+    static void onProxyConfigurationChanged() {
+        AiActivity activity = activeInstance.get();
+        if (activity != null) activity.syncNetworkRoute();
+    }
+
+    /** 普通页面切换不刷新；只有代理配置变化时才重新应用网络路由。 */
+    private void syncNetworkRoute() {
+        if (applyingProxy || isFinishing() || isDestroyed()) return;
+        if (!proxyRouteDirty) {
+            if (appliedProxyPort < 0) return;
+            int currentPort = TrojanProxyManager.loadConfig(this).enabled
+                    ? TrojanProxyManager.ensureLocalProxyPort(this) : 0;
+            if (currentPort == appliedProxyPort) return;
+        }
+        boolean needsLoad = webView.getUrl() == null || errorPanel.getVisibility() == View.VISIBLE;
+        applyNetworkRoute(() -> {
+            if (needsLoad) openConfiguredAddress();
+        });
     }
 
     @Override
     public void onBackPressed() {
-        if (errorPanel.getVisibility() == View.VISIBLE) finish();
-        else if (webView.canGoBack()) webView.goBack();
-        else finish();
+        if (errorPanel.getVisibility() != View.VISIBLE && webView.canGoBack()) webView.goBack();
+        else returnToKnowledge();
     }
 
     @Override
@@ -413,19 +521,16 @@ public class AiActivity extends Activity {
     }
 
     @Override
-    protected void onPause() {
-        webView.onPause();
-        super.onPause();
-    }
-
-    @Override
     protected void onResume() {
         super.onResume();
-        webView.onResume();
+        syncNetworkRoute();
     }
 
     @Override
     protected void onDestroy() {
+        if (activeInstance.get() == this) activeInstance.clear();
+        ++proxyGeneration;
+        pendingCredentials = null;
         if (authDialog != null) authDialog.cancel();
         webView.stopLoading();
         if (webView.getParent() instanceof ViewGroup) ((ViewGroup) webView.getParent()).removeView(webView);
