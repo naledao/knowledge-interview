@@ -175,7 +175,7 @@ onDeactivated(() => closeMenu())
 .variant-header .mode-trigger:focus-visible { box-shadow: 0 0 0 2px #93c5fd; }
 .variant-header .mode-trigger-chevron { width: 12px; height: 12px; }
 
-.variant-form .mode-trigger { padding: 9px 11px 9px 14px; border: 1px solid #dbe3f0; border-radius: 10px; background: #f1f5f9; color: #1e293b; font-size: 13px; font-weight: 650; }
+.variant-form .mode-trigger { padding: 6px 9px 6px 11px; border: 1px solid #dbe3f0; border-radius: 10px; background: #f1f5f9; color: #1e293b; font-size: 13px; font-weight: 650; }
 .variant-form .mode-trigger:hover { border-color: #c7d2e3; background: #e8eef6; color: #1e293b; }
 .variant-form .mode-trigger.open, .variant-form .mode-trigger:focus-visible { border-color: #818cf8; background: #f1f5f9; box-shadow: 0 0 0 3px #6366f119; }
 @media (max-width: 640px) {
@@ -183,7 +183,7 @@ onDeactivated(() => closeMenu())
   .variant-form .mode-trigger:hover, .variant-form .mode-trigger.open, .variant-form .mode-trigger:focus-visible { background: transparent; box-shadow: none; color: #2563eb; }
 }
 
-.variant-home .mode-trigger { padding: 8px 10px 8px 13px; border: 1px solid #dbe3f0; border-radius: 8px; background: #f1f5f9; color: #1e293b; font-size: 13px; font-weight: 650; }
+.variant-home .mode-trigger { padding: 6px 9px 6px 11px; border: 1px solid #dbe3f0; border-radius: 8px; background: #f1f5f9; color: #1e293b; font-size: 13px; font-weight: 650; }
 .variant-home .mode-trigger:hover { border-color: #c7d2e3; background: #e8eef6; color: #1e293b; }
 .variant-home .mode-trigger.open, .variant-home .mode-trigger:focus-visible { border-color: #417de2; background: #f1f5f9; box-shadow: 0 0 0 3px #2563eb18; }
 @media (max-width: 520px) {

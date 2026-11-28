@@ -42,9 +42,9 @@ const html = computed(() => renderMarkdown(props.source))
 .markdown-body :deep(hr) { margin: 1.6em 0; border: 0; border-top: 1px solid #e2e8f0; }
 .markdown-body :deep(code) { font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace; font-size: .88em; }
 .markdown-body :deep(:not(pre) > code) { padding: .15em .4em; border-radius: 5px; background: #f1f5f9; color: #be185d; overflow-wrap: anywhere; }
-.markdown-body :deep(pre) { margin: 0 0 1em; padding: 14px 16px; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; line-height: 1.6; }
+.markdown-body :deep(pre) { margin: 0 0 .8em; padding: 14px 16px; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; line-height: 1.6; }
 .markdown-body :deep(pre code) { display: block; padding: 0; background: none; color: #1e293b; white-space: pre; overflow-wrap: normal; }
-.markdown-body :deep(.md-table) { margin: 0 0 1em; overflow-x: auto; }
+.markdown-body :deep(.md-table) { margin: 0 0 .8em; overflow-x: auto; }
 .markdown-body :deep(table) { min-width: 100%; border-collapse: collapse; font-size: .92em; line-height: 1.6; }
 .markdown-body :deep(:is(th, td)) { padding: 8px 12px; border: 1px solid #e2e8f0; text-align: left; vertical-align: top; }
 .markdown-body :deep(th) { background: #f8fafc; color: #0f172a; font-weight: 700; white-space: nowrap; }

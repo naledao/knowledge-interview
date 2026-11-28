@@ -66,37 +66,31 @@ async function submitKey() {
 </template>
 
 <style scoped>
-.api-key-page { min-height: min(70vh, 650px); display: grid; place-items: center; padding: 24px 0; }
-.key-card { width: min(100%, 460px); padding: 36px; border: 1px solid #e2e8f0; border-radius: 20px; background: #fff; box-shadow: 0 16px 48px rgba(15, 23, 42, .06); }
-.key-icon { font-size: 32px; margin-bottom: 14px; }
-h1 { font-size: 27px; margin: 0 0 12px; color: #0f172a; }
-.key-description { color: #475569; line-height: 1.8; margin: 0 0 28px; }
-label { display: block; font-weight: 600; color: #334155; margin-bottom: 10px; }
-.key-input-row { display: flex; align-items: center; border: 1px solid #cbd5e1; border-radius: 10px; overflow: hidden; }
+.api-key-page { min-height: min(62vh, 520px); display: grid; place-items: center; padding: 12px 0; background: radial-gradient(circle at 50% 15%, #eaf1ff 0%, transparent 58%); }
+.key-card { width: min(100%, 440px); padding: 24px 28px; border: 1px solid #dce7f5; border-radius: 16px; background: #fff; box-shadow: 0 16px 44px #1e40af0c, 0 2px 8px #1e293b08; }
+.key-icon { display: grid; width: 44px; height: 44px; place-items: center; margin-bottom: 12px; border: 1px solid #cfddff; border-radius: 12px; background: linear-gradient(135deg, #eaf2ff, #f0edff); color: #365fcd; }
+.key-icon svg { width: 22px; height: 22px; }
+h1 { font-size: 22px; margin: 0 0 8px; color: #0f172a; }
+.key-description { color: #475569; font-size: 14px; line-height: 1.65; margin: 0 0 18px; }
+label { display: block; font-size: 14px; font-weight: 600; color: #334155; margin-bottom: 6px; }
+.key-input-row { display: flex; align-items: center; border: 1px solid #cbd5e1; border-radius: 10px; overflow: hidden; background: #fafdff; transition: border-color .2s, box-shadow .2s; }
 .key-input-row:focus-within { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .1); }
-input { min-width: 0; flex: 1; border: 0; outline: 0; padding: 13px 14px; font: inherit; }
-.visibility-button { border: 0; background: transparent; color: #2563eb; cursor: pointer; padding: 12px; font: inherit; }
-.submit-button { width: 100%; margin-top: 20px; padding: 14px; background: #2563eb; color: #fff; border: none; border-radius: 10px; font: inherit; font-weight: 600; cursor: pointer; }
-.submit-button:disabled { background: #94a3b8; cursor: not-allowed; }
-.key-error { color: #b91c1c; margin: 12px 0 0; line-height: 1.6; }
-.key-note { margin: 22px 0 0; color: #64748b; font-size: 13px; line-height: 1.8; }
-@media (max-width: 640px) { .api-key-page { min-height: 60vh; padding: 12px 0; } .key-card { padding: 24px 20px; } h1 { font-size: 24px; } }
-
-/* 页面图标增强：密钥验证表单。 */
-.api-key-page { background: radial-gradient(circle at 50% 15%, #eaf1ff 0%, transparent 58%); }
-.key-card { border-color: #dce7f5; box-shadow: 0 22px 58px #1e40af0c, 0 2px 10px #1e293b08; }
-.key-icon { display: grid; width: 60px; height: 60px; place-items: center; margin-bottom: 20px; border: 1px solid #cfddff; border-radius: 18px; background: linear-gradient(135deg, #eaf2ff, #f0edff); color: #365fcd; }
-.key-input-row { background: #fafdff; transition: border-color .2s, box-shadow .2s; }
-.key-input-row input { background: transparent; }
-.visibility-button { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.key-input-row input { min-width: 0; flex: 1; border: 0; outline: 0; padding: 10px 12px; background: transparent; font: inherit; font-size: 14px; }
+.visibility-button { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; border: 0; background: transparent; color: #2563eb; cursor: pointer; padding: 8px 12px; font: inherit; font-size: 13px; white-space: nowrap; }
 .visibility-button:hover { background: #eef4ff; }
-.submit-button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 50px; transition: background .18s, box-shadow .18s; }
-.submit-button:not(:disabled):hover { background: #1d4ed8; box-shadow: 0 8px 22px #2563eb30; }
-.key-error { display: flex; align-items: flex-start; gap: 8px; }
-.key-error svg { flex-shrink: 0; margin-top: 3px; }
-.key-note { display: flex; gap: 10px; padding: 13px 14px; border-radius: 11px; background: #f4f7fc; }
-.key-note svg { flex-shrink: 0; margin-top: 3px; color: #647da2; }
+.submit-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; margin-top: 14px; padding: 10px 14px; background: #2563eb; color: #fff; border: none; border-radius: 10px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: background .18s, box-shadow .18s; }
+.submit-button:not(:disabled):hover { background: #1d4ed8; box-shadow: 0 6px 18px #2563eb2c; }
+.submit-button:disabled { background: #94a3b8; cursor: not-allowed; }
+.key-error { display: flex; align-items: flex-start; gap: 7px; color: #b91c1c; margin: 10px 0 0; font-size: 13px; line-height: 1.55; }
+.key-error svg { flex-shrink: 0; margin-top: 2px; }
+.key-note { display: flex; gap: 8px; margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; background: #f4f7fc; color: #64748b; font-size: 12px; line-height: 1.65; }
+.key-note svg { flex-shrink: 0; margin-top: 2px; color: #647da2; }
 .key-spinner { animation: key-spin 1s linear infinite; }
 @keyframes key-spin { to { transform: rotate(360deg); } }
+@media (max-width: 640px) {
+  .api-key-page { min-height: auto; padding: 6px 0; }
+  .key-card { padding: 18px 16px; }
+  h1 { font-size: 20px; }
+}
 @media (prefers-reduced-motion: reduce) { .key-spinner { animation: none; } }
 </style>

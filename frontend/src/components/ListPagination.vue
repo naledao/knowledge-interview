@@ -13,8 +13,8 @@ defineEmits<{ change: [page: number] }>()
 </template>
 
 <style scoped>
-.list-pagination { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 16px; margin: 28px 0 6px; font-size: 14px; color: #475569; }
-.list-pagination button { padding: 9px 16px; border: 1px solid #dbe3ee; border-radius: 9px; background: #fff; color: #1d4ed8; font: inherit; cursor: pointer; }
+.list-pagination { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 10px; margin: 16px 0 4px; font-size: 13px; color: #475569; }
+.list-pagination button { min-height: 36px; padding: 6px 12px; border: 1px solid #dbe3ee; border-radius: 8px; background: #fff; color: #1d4ed8; font: inherit; cursor: pointer; }
 .list-pagination button:hover:not(:disabled) { background: #eff6ff; border-color: #93c5fd; }
 .list-pagination button:disabled { opacity: .45; cursor: not-allowed; }
 </style>
