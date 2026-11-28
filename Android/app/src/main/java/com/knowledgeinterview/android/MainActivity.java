@@ -1,31 +1,35 @@
 package com.knowledgeinterview.android;
 
+import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Dialog;
+import android.content.pm.ApplicationInfo;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
-import android.view.Gravity;
-import android.view.Window;
-import android.view.WindowManager;
-import android.widget.ImageView;
-import android.widget.TextView;
-import android.text.InputType;
-
-
-import android.widget.EditText;
-import android.widget.LinearLayout;
-import android.widget.Toast;
-import android.content.pm.ApplicationInfo;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.InputType;
 import android.util.Log;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Toast;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -44,10 +48,15 @@ public class MainActivity extends Activity {
     private static final String DEFAULT_BACKEND = "http://frp.kangnasi.xyz:9881";
     private static final String SETTINGS_FILE = "backend_settings";
     private static final String BACKEND_ADDRESS_KEY = "backend_address";
+    private static final long SPLASH_TIMEOUT_MS = 1200L;
     private WebView webView;
     private AppUpdater appUpdater;
     private boolean initialUpdateChecked;
-    
+    private FrameLayout splashOverlay;
+    private ValueAnimator splashPulseAnimator;
+    private boolean splashDismissed;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Runnable splashFallbackRunnable = this::dismissSplashOverlay;
 
     @Override
     @SuppressLint("SetJavaScriptEnabled")
@@ -72,6 +81,7 @@ public class MainActivity extends Activity {
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 return intercept(request);
             }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
@@ -86,6 +96,7 @@ public class MainActivity extends Activity {
                         android.content.Intent intent = new android.content.Intent(MainActivity.this, AiActivity.class);
                         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
                         startActivity(intent);
+                        MotionHelper.applyTransition(MainActivity.this, R.anim.slide_in_right_fade, R.anim.slide_out_left_scale);
                         return true;
                     }
                     if ("/backend".equals(uri.getPath())) {
@@ -107,16 +118,93 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                // 首次进入内置页面后读取已保存 API Key，静默检查新版本。
-                if (!initialUpdateChecked && url != null && url.startsWith("https://" + HOST + "/")) {
-                    initialUpdateChecked = true;
-                    appUpdater.check(view, false);
+                if (url != null && url.startsWith("https://" + HOST + "/")) {
+                    dismissSplashOverlay();
+                    // 首次进入内置页面后读取已保存 API Key，静默检查新版本。
+                    if (!initialUpdateChecked) {
+                        initialUpdateChecked = true;
+                        appUpdater.check(view, false);
+                    }
                 }
             }
         });
-        // 网页导航已经包含服务器设置入口，不再额外占用一整行原生工具栏。
-        setContentView(webView);
+        // 使用 FrameLayout 叠加轻量原生品牌启动遮罩，避免冷启动首屏白屏闪跳。
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(Color.WHITE);
+        root.addView(webView, new FrameLayout.LayoutParams(-1, -1));
+        splashOverlay = buildSplashOverlay();
+        root.addView(splashOverlay, new FrameLayout.LayoutParams(-1, -1));
+        setContentView(root);
+        mainHandler.postDelayed(splashFallbackRunnable, SPLASH_TIMEOUT_MS);
         webView.loadUrl("https://" + HOST + "/");
+    }
+
+    private FrameLayout buildSplashOverlay() {
+        FrameLayout overlay = new FrameLayout(this);
+        overlay.setBackgroundColor(Color.WHITE);
+
+        View pulseRing = new View(this);
+        GradientDrawable ringDrawable = new GradientDrawable();
+        ringDrawable.setShape(GradientDrawable.OVAL);
+        ringDrawable.setColor(Color.rgb(219, 234, 254));
+        pulseRing.setBackground(ringDrawable);
+        pulseRing.setAlpha(0.65f);
+        FrameLayout.LayoutParams ringParams = new FrameLayout.LayoutParams(dp(96), dp(96), Gravity.CENTER);
+        overlay.addView(pulseRing, ringParams);
+
+        ImageView logo = new ImageView(this);
+        logo.setImageResource(R.mipmap.ic_launcher);
+        logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        FrameLayout.LayoutParams logoParams = new FrameLayout.LayoutParams(dp(72), dp(72), Gravity.CENTER);
+        overlay.addView(logo, logoParams);
+
+        if (MotionHelper.isAnimationsEnabled(this)) {
+            splashPulseAnimator = ValueAnimator.ofFloat(0f, 1f);
+            splashPulseAnimator.setDuration(1400L);
+            splashPulseAnimator.setRepeatCount(ValueAnimator.INFINITE);
+            splashPulseAnimator.setRepeatMode(ValueAnimator.REVERSE);
+            splashPulseAnimator.setInterpolator(MotionHelper.STANDARD_INTERPOLATOR);
+            splashPulseAnimator.addUpdateListener(anim -> {
+                float t = (float) anim.getAnimatedValue();
+                float scale = 1f + 0.22f * t;
+                pulseRing.setScaleX(scale);
+                pulseRing.setScaleY(scale);
+                pulseRing.setAlpha(0.68f - 0.50f * t);
+            });
+            splashPulseAnimator.start();
+        }
+        return overlay;
+    }
+
+    private void dismissSplashOverlay() {
+        if (splashDismissed) return;
+        splashDismissed = true;
+        mainHandler.removeCallbacks(splashFallbackRunnable);
+        if (splashPulseAnimator != null) {
+            splashPulseAnimator.cancel();
+            splashPulseAnimator = null;
+        }
+        final View overlay = splashOverlay;
+        splashOverlay = null;
+        if (overlay == null) return;
+        Runnable removeOverlay = () -> {
+            if (overlay.getParent() instanceof ViewGroup) {
+                ((ViewGroup) overlay.getParent()).removeView(overlay);
+            }
+        };
+        if (!MotionHelper.isAnimationsEnabled(this)) {
+            removeOverlay.run();
+            return;
+        }
+        overlay.animate().cancel();
+        overlay.animate()
+                .alpha(0f)
+                .scaleX(1.04f)
+                .scaleY(1.04f)
+                .setDuration(240)
+                .setInterpolator(MotionHelper.ENTER_INTERPOLATOR)
+                .withEndAction(removeOverlay)
+                .start();
     }
 
     // 使用 SharedPreferences 持久化后端地址，应用重启后继续生效。
@@ -211,7 +299,12 @@ public class MainActivity extends Activity {
         secondaryBtn.setTypeface(null, Typeface.BOLD);
         secondaryBtn.setTextColor(cfg.enabled ? Color.rgb(220, 38, 38) : Color.rgb(71, 85, 105));
         secondaryBtn.setGravity(Gravity.CENTER);
-        secondaryBtn.setBackground(dialogShape(Color.rgb(241, 245, 249), 10, Color.TRANSPARENT));
+        secondaryBtn.setClickable(true);
+        secondaryBtn.setBackground(MotionHelper.ripple(
+                cfg.enabled ? 0x1ADC2626 : 0x182563EB,
+                dialogShape(Color.rgb(241, 245, 249), 10, Color.TRANSPARENT)
+        ));
+        MotionHelper.attachPressScale(secondaryBtn);
         LinearLayout.LayoutParams secParams = new LinearLayout.LayoutParams(dp(92), dp(44));
         secParams.rightMargin = dp(10);
         actions.addView(secondaryBtn, secParams);
@@ -222,7 +315,12 @@ public class MainActivity extends Activity {
         saveBtn.setTypeface(null, Typeface.BOLD);
         saveBtn.setTextColor(Color.WHITE);
         saveBtn.setGravity(Gravity.CENTER);
-        saveBtn.setBackground(dialogShape(Color.rgb(37, 99, 235), 10, Color.TRANSPARENT));
+        saveBtn.setClickable(true);
+        saveBtn.setBackground(MotionHelper.ripple(
+                0x33FFFFFF,
+                dialogShape(Color.rgb(37, 99, 235), 10, Color.TRANSPARENT)
+        ));
+        MotionHelper.attachPressScale(saveBtn);
         actions.addView(saveBtn, new LinearLayout.LayoutParams(dp(112), dp(44)));
 
         LinearLayout.LayoutParams actionsParams = new LinearLayout.LayoutParams(-1, -2);
@@ -236,14 +334,30 @@ public class MainActivity extends Activity {
                 AiActivity.onProxyConfigurationChanged();
                 Toast.makeText(this, "已停用内置 Trojan 代理", Toast.LENGTH_SHORT).show();
             }
-            dialog.dismiss();
+            MotionHelper.animateDialogExit(dialog, card);
         });
         saveBtn.setOnClickListener(v -> {
             String server = serverInput.getText().toString().trim();
+            if (server.contains(" ") || server.contains("\t")) {
+                serverInput.setError("服务器地址不能包含空格");
+                serverInput.requestFocus();
+                MotionHelper.shake(serverInput);
+                return;
+            }
+            String rawPort = portInput.getText().toString().trim();
             int port = TrojanProxyManager.DEFAULT_PORT;
-            try {
-                port = Integer.parseInt(portInput.getText().toString().trim());
-            } catch (NumberFormatException ignored) {
+            if (!rawPort.isEmpty()) {
+                try {
+                    port = Integer.parseInt(rawPort);
+                } catch (NumberFormatException error) {
+                    port = -1;
+                }
+                if (port < 1 || port > 65535) {
+                    portInput.setError("请输入 1-65535 的有效端口");
+                    portInput.requestFocus();
+                    MotionHelper.shake(portInput);
+                    return;
+                }
             }
             String password = passInput.getText().toString().trim();
             String sni = sniInput.getText().toString().trim();
@@ -258,7 +372,7 @@ public class MainActivity extends Activity {
             TrojanProxyManager.saveConfig(this, next);
             TrojanProxyManager.start(next);
             AiActivity.onProxyConfigurationChanged();
-            dialog.dismiss();
+            MotionHelper.animateDialogExit(dialog, card);
             if (TrojanProxyManager.isRunning()) {
                 Toast.makeText(this, "内置 Trojan 代理已启用", Toast.LENGTH_SHORT).show();
             } else {
@@ -272,8 +386,13 @@ public class MainActivity extends Activity {
         if (window != null) {
             window.setBackgroundDrawable(dialogShape(Color.TRANSPARENT, 0, Color.TRANSPARENT));
             window.setLayout((int) (getResources().getDisplayMetrics().widthPixels * 0.9), WindowManager.LayoutParams.WRAP_CONTENT);
+            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            WindowManager.LayoutParams attributes = window.getAttributes();
+            attributes.dimAmount = 0.38f;
+            window.setAttributes(attributes);
         }
         dialog.show();
+        MotionHelper.animateDialogEnter(card);
     }
 
     // 使用自定义浅色圆角卡片，与知识题库移动端的视觉风格保持一致。
@@ -349,7 +468,12 @@ public class MainActivity extends Activity {
         cancel.setTypeface(null, Typeface.BOLD);
         cancel.setTextColor(Color.rgb(71, 85, 105));
         cancel.setGravity(Gravity.CENTER);
-        cancel.setBackground(dialogShape(Color.rgb(241, 245, 249), 10, Color.TRANSPARENT));
+        cancel.setClickable(true);
+        cancel.setBackground(MotionHelper.ripple(
+                0x182563EB,
+                dialogShape(Color.rgb(241, 245, 249), 10, Color.TRANSPARENT)
+        ));
+        MotionHelper.attachPressScale(cancel);
         LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(dp(88), dp(44));
         cancelParams.rightMargin = dp(10);
         actions.addView(cancel, cancelParams);
@@ -359,24 +483,31 @@ public class MainActivity extends Activity {
         save.setTypeface(null, Typeface.BOLD);
         save.setTextColor(Color.WHITE);
         save.setGravity(Gravity.CENTER);
-        save.setBackground(dialogShape(Color.rgb(37, 99, 235), 10, Color.TRANSPARENT));
+        save.setClickable(true);
+        save.setBackground(MotionHelper.ripple(
+                0x33FFFFFF,
+                dialogShape(Color.rgb(37, 99, 235), 10, Color.TRANSPARENT)
+        ));
+        MotionHelper.attachPressScale(save);
         actions.addView(save, new LinearLayout.LayoutParams(dp(108), dp(44)));
         LinearLayout.LayoutParams actionsParams = new LinearLayout.LayoutParams(-1, -2);
         actionsParams.topMargin = dp(23);
         card.addView(actions, actionsParams);
 
-        cancel.setOnClickListener(v -> dialog.dismiss());
+        cancel.setOnClickListener(v -> MotionHelper.animateDialogExit(dialog, card));
         save.setOnClickListener(v -> {
             String address = normalizeBackendAddress(input.getText().toString());
             if (address == null) {
                 input.setError("请输入有效的 HTTP/HTTPS 地址，仅允许主机及可选端口");
                 input.requestFocus();
+                MotionHelper.shake(input);
                 return;
             }
             getSharedPreferences(SETTINGS_FILE, MODE_PRIVATE).edit()
                     .putString(BACKEND_ADDRESS_KEY, address).apply();
-            dialog.dismiss();
-            if (webView != null) webView.reload();
+            MotionHelper.animateDialogExit(dialog, card, () -> {
+                if (webView != null) webView.reload();
+            });
             Toast.makeText(this, "服务器地址已保存", Toast.LENGTH_SHORT).show();
         });
 
@@ -394,6 +525,7 @@ public class MainActivity extends Activity {
             window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
                     | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         }
+        MotionHelper.animateDialogEnter(card);
     }
 
     private int dp(float value) {
@@ -542,6 +674,11 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        mainHandler.removeCallbacks(splashFallbackRunnable);
+        if (splashPulseAnimator != null) {
+            splashPulseAnimator.cancel();
+            splashPulseAnimator = null;
+        }
         if (appUpdater != null) appUpdater.shutdown();
         if (webView != null) { webView.destroy(); webView = null; }
         super.onDestroy();

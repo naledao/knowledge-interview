@@ -98,10 +98,27 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
       <span aria-current='page'>{{ category?.name || '分类详情' }}</span>
     </nav>
 
-    <section v-if='loading' class='state-panel' role='status'>
-      <span class='loading-spinner' aria-hidden='true'></span>
-      <h1>加载中…</h1>
-    </section>
+    <div v-if='loading' class='skeleton-page' role='status' aria-label='加载分类详情中'>
+      <div class='category-hero' aria-hidden='true'>
+        <div class='hero-content' style='width: 100%'>
+          <div class='hero-title-row'>
+            <span class='hero-icon skeleton-shimmer' style='border: 0; box-shadow: none'></span>
+            <div class='skeleton-line skeleton-line-lg skeleton-shimmer' style='width: 42%'></div>
+          </div>
+          <div class='skeleton-line skeleton-shimmer' style='width: 72%; margin-top: 12px'></div>
+          <div class='skeleton-line-pill skeleton-shimmer' style='margin-top: 14px'></div>
+        </div>
+      </div>
+      <div class='topics-section' aria-hidden='true'>
+        <div class='topic-grid'>
+          <div v-for='n in 6' :key='n' class='skeleton-card'>
+            <div class='skeleton-line skeleton-shimmer' style='width: 24%'></div>
+            <div class='skeleton-line skeleton-line-lg skeleton-shimmer' style='width: 72%; margin-top: 12px'></div>
+            <div class='skeleton-line skeleton-shimmer' style='width: 92%'></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <section v-else-if='errorMessage' class='state-panel' role='alert'>
       <div class='state-symbol' aria-hidden='true'><AlertCircle :size='30' /></div>
@@ -144,7 +161,8 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
             v-for='(topic, index) in sortedTopics'
             :key='topic.id'
             :to='`/topics/${topic.id}`'
-            class='topic-card'
+            class='topic-card stagger-enter'
+            :style="{ '--stagger-index': index }"
           >
             <div class='topic-card-top'>
               <span class='topic-index'>{{ String((topicPage - 1) * 6 + index + 1).padStart(2, '0') }}</span>
@@ -188,6 +206,7 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
 .topic-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--grid-gap); }
 .topic-card { display: flex; flex-direction: column; min-width: 0; padding: var(--card-padding-y) var(--card-padding-x); border: 1px solid #e2e8f0; border-radius: var(--card-radius); background: #fff; color: inherit; text-decoration: none; transition: border-color .18s, box-shadow .18s, transform .18s; }
 .topic-card:hover { transform: translateY(-2px); border-color: #93c5fd; box-shadow: 0 10px 24px #1d4ed815; }
+.topic-card:active { transform: scale(0.982); background: #f5f9ff; border-color: #93c5fd; transition-duration: 100ms; }
 .topic-card:focus-visible, .breadcrumbs a:focus-visible, .home-link:focus-visible, .primary-action:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
 .topic-card-top { display: flex; justify-content: space-between; align-items: center; }
 .topic-index { color: #2563eb; font-size: 12px; font-weight: 800; letter-spacing: .05em; }
@@ -201,7 +220,9 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
 .empty-state p, .state-panel p { margin: 0 auto 16px; color: #64748b; font-size: 14px; line-height: 1.65; }
 .home-link { color: #2563eb; font-size: 14px; font-weight: 600; text-decoration: none; }
 .primary-action { display: inline-block; padding: 9px 18px; border: 0; border-radius: 9px; background: #2563eb; color: #fff; font: inherit; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; }
+.primary-action { transition: background .18s, transform var(--motion-micro, 140ms) var(--ease-micro, cubic-bezier(0.2, 0, 0, 1)); }
 .primary-action:hover { background: #1d4ed8; }
+.primary-action:active { transform: scale(0.96); }
 .loading-spinner { display: block; width: 34px; height: 34px; margin: 0 auto 14px; border: 3px solid #dbeafe; border-top-color: #2563eb; border-radius: 50%; animation: spin .9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 900px) {
@@ -214,7 +235,7 @@ watch(() => route.params.id, () => { void loadCategory(true) }, { immediate: tru
 }
 @media (prefers-reduced-motion: reduce) {
   .topic-card, .card-arrow { transition: none; }
-  .topic-card:hover { transform: none; }
+  .topic-card:hover, .topic-card:active, .primary-action:active { transform: none; }
   .loading-spinner { animation: none; }
 }
 </style>

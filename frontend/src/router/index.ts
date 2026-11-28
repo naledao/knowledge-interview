@@ -1,7 +1,13 @@
+import { ref } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
+
 /** Android WebView 中按完整路由地址记录页面滚动位置。 */
 const isNativeAndroid = typeof navigator !== 'undefined' && navigator.userAgent.includes('KnowledgeInterviewAndroid/')
 const scrollPositions = new Map<string, { left: number; top: number }>()
+
+/** 记录最近一次路由导航方向，供 App.vue 驱动前进/返回过渡动画。 */
+export const routeNavigationDirection = ref<'forward' | 'back'>('forward')
+let lastHistoryPosition = typeof window !== 'undefined' ? Number(window.history.state?.position ?? 0) : 0
 
 /**
  * PC 和移动端共用同一套路由，由页面组件负责响应式布局。
@@ -23,16 +29,19 @@ const router = createRouter({
   ],
 })
 
-if (isNativeAndroid) {
-  router.beforeEach((_to, from) => {
+router.beforeEach((_to, from) => {
+  const currentPos = typeof window !== 'undefined' ? Number(window.history.state?.position ?? lastHistoryPosition) : lastHistoryPosition
+  routeNavigationDirection.value = currentPos < lastHistoryPosition ? 'back' : 'forward'
+  if (isNativeAndroid && from.name != null) {
     // 离开页面前保存位置，返回已缓存页面时恢复阅读进度。
-    if (from.name != null) {
-      scrollPositions.set(from.fullPath, { left: window.scrollX, top: window.scrollY })
-    }
-  })
-}
+    scrollPositions.set(from.fullPath, { left: window.scrollX, top: window.scrollY })
+  }
+})
 
 router.afterEach((to) => {
+  if (typeof window !== 'undefined') {
+    lastHistoryPosition = Number(window.history.state?.position ?? lastHistoryPosition)
+  }
   document.title = `${String(to.meta.title ?? '知识题库')} - 知识题库`
 })
 

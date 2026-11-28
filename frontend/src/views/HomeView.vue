@@ -111,11 +111,18 @@ onMounted(loadHome)
       <div class="home-section-heading">
         <h2 id="category-heading"><Layers3 :size="22" aria-hidden="true" />知识分类</h2>
       </div>
-      <p v-if="loading" class="home-status" role="status">加载中…</p>
+      <div v-if="loading" class="category-grid" role="status" aria-label="加载分类中">
+        <div v-for="n in 6" :key="n" class="skeleton-card category-skeleton" aria-hidden="true">
+          <div class="skeleton-icon skeleton-shimmer"></div>
+          <div class="skeleton-line skeleton-line-lg skeleton-shimmer" style="width: 58%"></div>
+          <div class="skeleton-line skeleton-shimmer" style="width: 90%"></div>
+          <div class="skeleton-line skeleton-shimmer" style="width: 68%"></div>
+        </div>
+      </div>
       <div v-else-if="error" class="home-status home-error" role="alert">{{ error }} <button type="button" @click="loadHome">重试</button></div>
       <p v-else-if="!categories.length" class="home-status">暂无分类</p>
       <div v-else class="category-grid">
-        <RouterLink v-for="category in categories" :key="category.id" :to="`/categories/${category.id}`" class="category-card">
+        <RouterLink v-for="(category, index) in categories" :key="category.id" :to="`/categories/${category.id}`" class="category-card stagger-enter" :style="{ '--stagger-index': index }">
           <div class="category-card-top"><SmartIcon class="category-icon" :text="category.name" :size="22" /><ArrowUpRight class="category-arrow" :size="19" aria-hidden="true" /></div><h3>{{ category.name }}</h3>
           <p v-if="category.description">{{ category.description }}</p>
         </RouterLink>
@@ -128,10 +135,16 @@ onMounted(loadHome)
         <h2 id="recent-heading"><Clock3 :size="22" aria-hidden="true" />最近更新</h2>
         <RouterLink to="/search" class="section-link">搜索更多 <ArrowRight :size="16" aria-hidden="true" /></RouterLink>
       </div>
-      <p v-if="loading" class="home-status" role="status">加载中…</p>
+      <div v-if="loading" class="recent-list" role="status" aria-label="加载最近更新中">
+        <div v-for="n in 5" :key="n" class="recent-skeleton-row" aria-hidden="true">
+          <div class="skeleton-recent-icon skeleton-shimmer"></div>
+          <div class="skeleton-line skeleton-shimmer" style="flex: 1; max-width: 62%"></div>
+          <div class="skeleton-line skeleton-shimmer" style="width: 54px; margin-left: auto"></div>
+        </div>
+      </div>
       <p v-else-if="!recentItems.length" class="home-status">暂无内容</p>
       <div v-else class="recent-list">
-        <RouterLink v-for="item in recentItems" :key="item.id" :to="`/topics/${item.id}`" class="recent-item">
+        <RouterLink v-for="(item, index) in recentItems" :key="item.id" :to="`/topics/${item.id}`" class="recent-item stagger-enter" :style="{ '--stagger-index': index }">
           <SmartIcon class="recent-item-icon" :text="item.title" :secondary-text="item.category" :size="18" /><span class="recent-title">{{ item.title }}</span>
           <span v-if="item.category" class="recent-category">{{ item.category }}</span>
           <ArrowRight class="recent-arrow" :size="18" aria-hidden="true" />
@@ -157,10 +170,14 @@ onMounted(loadHome)
 .home-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: #172439; font: inherit; font-size: 14px; }
 .home-search input::placeholder { color: #98a5b6; }
 .home-search button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0; min-height: 36px; padding: 9px 18px; border: 0; border-radius: 8px; background: #2563eb; color: #fff; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.home-search button { transition: background .18s, transform var(--motion-micro, 140ms) var(--ease-micro, cubic-bezier(0.2, 0, 0, 1)); }
 .home-search button:hover { background: #1d4ed8; }
+.home-search button:active { transform: scale(0.96); }
 .home-random { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; }
 .random-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 7px 14px; border: 1px solid #c7d7f5; border-radius: 9px; background: #ffffffcc; color: #2563eb; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: border-color .18s, background .18s; }
+.random-button { transition: border-color .18s, background .18s, transform var(--motion-micro, 140ms) var(--ease-micro, cubic-bezier(0.2, 0, 0, 1)); }
 .random-button:hover:not(:disabled) { border-color: #93b4ee; background: #fff; }
+.random-button:active:not(:disabled) { transform: scale(0.975); background: #eff6ff; }
 .random-button:disabled { cursor: progress; opacity: .7; }
 .random-error { color: #b91c1c; font-size: 13px; }
 .home-section, .recent-section { margin-top: var(--section-gap); }
@@ -172,6 +189,7 @@ onMounted(loadHome)
 .category-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--grid-gap); }
 .category-card { display: block; min-width: 0; min-height: 96px; padding: var(--card-padding-y) var(--card-padding-x); border: 1px solid #e4eaf2; border-radius: var(--card-radius); background: #fff; color: inherit; transition: transform .18s, border-color .18s, box-shadow .18s; }
 .category-card:hover { transform: translateY(-2px); border-color: #9ab9ec; box-shadow: 0 10px 24px rgba(30, 64, 175, .075); }
+.category-card:active { transform: scale(0.982); background: #f5f9ff; border-color: #93c5fd; transition-duration: 100ms; }
 .category-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .category-icon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: #edf4ff; color: #3b68cd; }
 .category-arrow { color: #93a5bd; transition: transform .18s, color .18s; }
@@ -183,7 +201,14 @@ onMounted(loadHome)
 .recent-list { border: 1px solid #e4eaf2; border-radius: var(--card-radius); overflow: hidden; background: #fff; }
 .recent-item { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 10px 14px; color: #26384e; }
 .recent-item + .recent-item { border-top: 1px solid #eef1f6; }
+.recent-item { transition: background .15s, transform var(--motion-micro, 140ms) var(--ease-micro, cubic-bezier(0.2, 0, 0, 1)); }
 .recent-item:hover { background: #f8fbff; }
+.recent-item:active { transform: scale(0.988); background: #eff6ff; transition-duration: 100ms; }
+.category-skeleton { min-height: 96px; }
+.skeleton-icon { width: 34px; height: 34px; margin-bottom: 12px; border-radius: 10px; }
+.recent-skeleton-row { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 10px 14px; }
+.recent-skeleton-row + .recent-skeleton-row { border-top: 1px solid #eef1f6; }
+.skeleton-recent-icon { width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; }
 .recent-item-icon { display: grid; flex: 0 0 30px; height: 30px; place-items: center; border-radius: 8px; background: #eef4ff; color: #5378c8; }
 .recent-title { flex: 1; min-width: 0; font-size: 14px; font-weight: 650; overflow-wrap: anywhere; }
 .recent-category { max-width: 32%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #8190a6; font-size: 12px; }
@@ -215,6 +240,6 @@ onMounted(loadHome)
 }
 @media (prefers-reduced-motion: reduce) {
   .category-card, .recent-arrow, .category-arrow { transition: none; }
-  .category-card:hover { transform: none; }
+  .category-card:hover, .category-card:active, .recent-item:active, .random-button:active, .home-search button:active { transform: none; }
 }
 </style>

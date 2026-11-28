@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter, type LocationQueryRaw } from 'vue-router'
+import { routeNavigationDirection } from './router'
 import { rememberedSearchMode, rememberSearchMode, SEARCH_MODE_OPTIONS } from './utils/searchModeMemory'
 import SearchModeSelect from './components/SearchModeSelect.vue'
 import type { SearchMode } from './api/knowledge'
@@ -21,6 +22,7 @@ const searchModeModel = computed<SearchMode>({
 })
 /** 仅内置安卓 WebView 展示服务器配置入口。 */
 const isNativeAndroid = navigator.userAgent.includes('KnowledgeInterviewAndroid/')
+const routeTransitionName = computed(() => (routeNavigationDirection.value === 'back' ? 'route-back' : 'route-forward'))
 
 const pageRefreshing = ref(false)
 
@@ -123,8 +125,10 @@ onUnmounted(() => {
             <span>设置</span>
           </RouterLink>
           <button type="button" class="mobile-menu-toggle" :aria-expanded="menuOpen" aria-controls="mobile-navigation" :aria-label="menuOpen ? '关闭导航菜单' : '打开导航菜单'" @click="menuOpen = !menuOpen">
-            <X v-if="menuOpen" :size="22" aria-hidden="true" />
-            <Menu v-else :size="22" aria-hidden="true" />
+            <Transition name="menu-icon-swap" mode="out-in">
+              <X v-if="menuOpen" key="close" :size="22" aria-hidden="true" />
+              <Menu v-else key="open" :size="22" aria-hidden="true" />
+            </Transition>
           </button>
         </div>
       </div>
@@ -140,12 +144,16 @@ onUnmounted(() => {
         </nav>
       </Transition>
     </header>
-    <button v-if="menuOpen" type="button" class="mobile-nav-backdrop" tabindex="-1" aria-label="关闭导航菜单" @click="closeMenu"></button>
+    <Transition name="mobile-backdrop-transition">
+      <button v-if="menuOpen" type="button" class="mobile-nav-backdrop" tabindex="-1" aria-label="关闭导航菜单" @click="closeMenu"></button>
+    </Transition>
     <main id="main-content" class="site-main" tabindex="-1">
-      <RouterView v-if="isNativeAndroid" v-slot="{ Component, route }">
-        <KeepAlive>
-          <component :is="Component" :key="route.fullPath" />
-        </KeepAlive>
+      <RouterView v-if="isNativeAndroid" v-slot="{ Component, route: currentRoute }">
+        <Transition :name="routeTransitionName" mode="out-in">
+          <KeepAlive>
+            <component :is="Component" :key="currentRoute.fullPath" />
+          </KeepAlive>
+        </Transition>
       </RouterView>
       <RouterView v-else />
     </main>

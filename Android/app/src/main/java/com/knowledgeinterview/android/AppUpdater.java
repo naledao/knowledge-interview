@@ -218,6 +218,7 @@ final class AppUpdater {
         progress.update("正在连接 GitHub 下载服务器…", -1);
         executor.execute(() -> {
             File staging = new File(activity.getCacheDir(), "app-update.part");
+            boolean readyToInstall = false;
             try {
                 downloadAndVerify(latest, staging, progress);
                 if (cancelled.get()) return;
@@ -225,12 +226,19 @@ final class AppUpdater {
                 if (apk.exists() && !apk.delete()) throw new IllegalStateException("无法清理旧安装包");
                 if (!staging.renameTo(apk)) throw new IllegalStateException("保存安装包失败");
                 pendingInstall = apk;
+                readyToInstall = true;
                 activity.runOnUiThread(() -> {
-                    progress.dismiss();
                     if (cancelled.get()) {
                         pendingInstall = null;
+                        progress.dismiss();
+                        if (activeProgress == progress) activeProgress = null;
                     } else if (!activity.isDestroyed() && !activity.isFinishing()) {
-                        installPending();
+                        progress.markReadyToInstall("校验通过，安装包已准备就绪", () -> {
+                            if (activeProgress == progress) activeProgress = null;
+                            if (!activity.isDestroyed() && !activity.isFinishing()) {
+                                installPending();
+                            }
+                        });
                     }
                 });
             } catch (Exception error) {
@@ -239,10 +247,12 @@ final class AppUpdater {
             } finally {
                 if (staging.exists()) staging.delete();
                 downloading.set(false);
-                activity.runOnUiThread(() -> {
-                    progress.dismiss();
-                    if (activeProgress == progress) activeProgress = null;
-                });
+                if (!readyToInstall) {
+                    activity.runOnUiThread(() -> {
+                        progress.dismiss();
+                        if (activeProgress == progress) activeProgress = null;
+                    });
+                }
             }
         });
     }

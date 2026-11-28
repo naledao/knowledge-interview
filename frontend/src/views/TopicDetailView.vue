@@ -104,10 +104,23 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
       <span class="current-crumb" aria-current="page">{{ topic?.title || '主题详情' }}</span>
     </nav>
 
-    <section v-if="loading" class="state-panel" role="status">
-      <span class="loading-spinner" aria-hidden="true"></span>
-      <h1>加载中…</h1>
-    </section>
+    <div v-if="loading" class="skeleton-page" role="status" aria-label="加载主题详情中">
+      <div class="topic-hero" aria-hidden="true">
+        <div class="hero-main" style="width: 100%">
+          <div class="skeleton-line skeleton-line-lg skeleton-shimmer" style="width: 50%"></div>
+          <div class="skeleton-line skeleton-shimmer" style="width: 78%; margin-top: 12px"></div>
+          <div class="skeleton-line-pill skeleton-shimmer" style="margin-top: 14px"></div>
+        </div>
+      </div>
+      <div class="questions-section" aria-hidden="true">
+        <div class="question-list">
+          <div v-for="n in 6" :key="n" class="skeleton-card question-skeleton-row">
+            <div class="skeleton-num skeleton-shimmer"></div>
+            <div class="skeleton-line skeleton-shimmer" style="flex: 1; max-width: 76%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <section v-else-if="errorMessage" class="state-panel" role="alert">
       <div class="state-symbol" aria-hidden="true"><AlertCircle :size="30" /></div>
@@ -144,7 +157,7 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
 
         <ol v-if="sortedQuestions.length" class="question-list">
           <li v-for="(question, index) in sortedQuestions" :key="question.id">
-            <RouterLink class="question-card" :to="`/questions/${question.id}`">
+            <RouterLink class="question-card stagger-enter" :style="{ '--stagger-index': index }" :to="`/questions/${question.id}`">
               <span class="question-number">{{ String((questionPage - 1) * 6 + index + 1).padStart(2, '0') }}</span>
               <span class="question-main">
                 <strong>{{ question.questionText }}</strong>
@@ -187,6 +200,9 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
 .question-list { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .question-card { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid #e2e8f0; border-radius: var(--card-radius); background: #fff; color: inherit; text-decoration: none; transition: transform .18s, border-color .18s, box-shadow .18s; }
 .question-card:hover { transform: translateY(-2px); border-color: #c4b5fd; box-shadow: 0 10px 24px #6d28d914; }
+.question-card:active { transform: scale(0.982); background: #faf8ff; border-color: #c4b5fd; transition-duration: 100ms; }
+.question-skeleton-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+.skeleton-num { width: 36px; height: 36px; flex-shrink: 0; border-radius: 9px; }
 .question-card:focus-visible, .breadcrumbs a:focus-visible, .primary-action:focus-visible, .return-link:focus-visible { outline: 3px solid #7c3aed; outline-offset: 3px; }
 .question-number { display: grid; place-items: center; flex: 0 0 36px; height: 36px; border-radius: 9px; background: #f5f3ff; color: #7c3aed; font-size: 13px; font-weight: 800; }
 .question-main { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
@@ -198,7 +214,9 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
 .state-panel p, .empty-state p { margin: 0 auto 16px; color: #64748b; font-size: 14px; line-height: 1.65; }
 .state-symbol, .empty-symbol { display: grid; place-items: center; width: 48px; height: 48px; margin: 0 auto 12px; border-radius: 14px; background: #f5f3ff; color: #7c3aed; }
 .primary-action { display: inline-block; padding: 9px 18px; border: 0; border-radius: 9px; background: #7c3aed; color: #fff; font: inherit; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; }
+.primary-action { transition: background .18s, transform var(--motion-micro, 140ms) var(--ease-micro, cubic-bezier(0.2, 0, 0, 1)); }
 .primary-action:hover { background: #6d28d9; }
+.primary-action:active { transform: scale(0.96); }
 .return-link { color: #6d28d9; font-size: 14px; font-weight: 600; }
 .loading-spinner { display: block; width: 34px; height: 34px; margin: 0 auto 14px; border: 3px solid #ede9fe; border-top-color: #7c3aed; border-radius: 50%; animation: spin .9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -211,7 +229,7 @@ watch(() => route.params.id, () => { void loadTopic(true) }, { immediate: true }
 }
 @media (prefers-reduced-motion: reduce) {
   .question-card { transition: none; }
-  .question-card:hover { transform: none; }
+  .question-card:hover, .question-card:active, .primary-action:active { transform: none; }
   .loading-spinner { animation: none; }
 }
 </style>

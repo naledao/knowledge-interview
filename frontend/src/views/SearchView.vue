@@ -275,9 +275,12 @@ onBeforeUnmount(() => controller?.abort())
         </div>
       </div>
 
-      <div v-if="showSkeleton" class="message-panel" role="status">
-        <div class="loading-spinner" aria-hidden="true"></div>
-        <h3>搜索中…</h3>
+      <div v-if="showSkeleton" class="result-list" role="status" aria-label="正在搜索">
+        <div v-for="n in 4" :key="n" class="skeleton-card" aria-hidden="true">
+          <div class="skeleton-line-pill skeleton-shimmer" style="width: 72px; height: 20px; margin-bottom: 10px"></div>
+          <div class="skeleton-line skeleton-line-lg skeleton-shimmer" style="width: 66%"></div>
+          <div class="skeleton-line skeleton-shimmer" style="width: 92%"></div>
+        </div>
       </div>
 
       <div v-else-if="errorMessage" class="message-panel" role="alert">
@@ -317,10 +320,11 @@ onBeforeUnmount(() => controller?.abort())
         <template v-else>
           <div :class="['result-list', { refreshing: loading }]" :aria-busy="loading">
             <RouterLink
-              v-for="item in result.items"
+              v-for="(item, index) in result.items"
               :key="`${item.kind}-${item.id}`"
               :to="hitPath(item)"
-              class="result-card"
+              class="result-card stagger-enter"
+              :style="{ '--stagger-index': index }"
             >
               <div class="result-topline">
                 <span :class="['kind-tag', `kind-${item.kind}`]"><FolderOpen v-if="item.kind === 'category'" :size="13" /><Layers3 v-else-if="item.kind === 'topic'" :size="13" /><CircleHelp v-else :size="13" />{{ kindLabels[item.kind] }}</span>
@@ -365,12 +369,16 @@ onBeforeUnmount(() => controller?.abort())
 .search-form input { min-width: 0; flex: 1; border: 0; outline: 0; font: inherit; font-size: 14px; background: transparent; color: #0f172a; }
 .search-form input::placeholder { color: #94a3b8; }
 .search-form button[type="submit"] { flex-shrink: 0; min-height: 36px; border: 0; border-radius: 8px; padding: 8px 16px; background: #2563eb; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; }
+.search-form button[type="submit"] { transition: background .18s, transform var(--motion-micro, 140ms) var(--ease-micro, cubic-bezier(0.2, 0, 0, 1)); }
 .search-form button[type="submit"]:hover { background: #1d4ed8; }
+.search-form button[type="submit"]:active:not(:disabled) { transform: scale(0.96); }
 .search-form button[type="submit"]:disabled { opacity: .6; cursor: progress; }
 .suggestions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; color: #64748b; font-size: 12px; }
 .suggestions > span { margin-right: 4px; }
 .suggestions button { padding: 4px 10px; border: 1px solid #dbe3f0; border-radius: 99px; color: #475569; background: #ffffffc8; font: inherit; cursor: pointer; }
+.suggestions button { transition: border-color .16s, color .16s, background .16s, transform var(--motion-micro, 140ms) var(--ease-micro, cubic-bezier(0.2, 0, 0, 1)); }
 .suggestions button:hover { border-color: #a5b4fc; color: #2563eb; background: #fff; }
+.suggestions button:active { transform: scale(0.95); background: #eff6ff; }
 .search-content { padding: 18px 0 0; }
 .result-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
 .result-heading h2 { display: flex; align-items: center; gap: 9px; margin: 0 0 4px; overflow-wrap: anywhere; font-size: 18px; }
@@ -378,8 +386,9 @@ onBeforeUnmount(() => controller?.abort())
 .result-heading p strong { color: #2563eb; }
 .truncated-note { color: #b45309; }
 .filter-bar { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; }
-.filter-button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 11px; border: 1px solid #e2e8f0; border-radius: 9px; background: #fff; color: #64748b; font-size: 13px; font-weight: 650; cursor: pointer; }
-.filter-button span { display: inline-flex; justify-content: center; align-items: center; min-width: 21px; padding: 1px 6px; border-radius: 6px; background: #f1f5f9; font-size: 11px; }
+.filter-button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 11px; border: 1px solid #e2e8f0; border-radius: 9px; background: #fff; color: #64748b; font-size: 13px; font-weight: 650; cursor: pointer; transition: background 180ms var(--ease-micro, cubic-bezier(0.2, 0, 0, 1)), color 180ms var(--ease-micro, cubic-bezier(0.2, 0, 0, 1)), border-color 180ms var(--ease-micro, cubic-bezier(0.2, 0, 0, 1)), transform var(--motion-micro, 140ms) var(--ease-micro, cubic-bezier(0.2, 0, 0, 1)); }
+.filter-button:active { transform: scale(0.96); }
+.filter-button span { display: inline-flex; justify-content: center; align-items: center; min-width: 21px; padding: 1px 6px; border-radius: 6px; background: #f1f5f9; font-size: 11px; transition: background 180ms var(--ease-micro, cubic-bezier(0.2, 0, 0, 1)), color 180ms var(--ease-micro, cubic-bezier(0.2, 0, 0, 1)); }
 .filter-button:hover { border-color: #a5b4fc; }
 .filter-button.active { color: #fff; background: #2563eb; border-color: #2563eb; }
 .filter-button.active span { color: #fff; background: #ffffff30; }
@@ -387,6 +396,7 @@ onBeforeUnmount(() => controller?.abort())
 .result-list.refreshing { opacity: .55; pointer-events: none; transition: opacity .15s; }
 .result-card { display: block; padding: 12px 16px; border: 1px solid #e2e8f0; border-radius: var(--card-radius); background: #fff; color: inherit; box-shadow: 0 2px 8px rgba(27, 54, 110, .025); transition: border-color .2s, transform .2s, box-shadow .2s; }
 .result-card:hover { border-color: #a5b4fc; transform: translateY(-2px); box-shadow: 0 10px 24px #47556910; text-decoration: none; }
+.result-card:active { transform: scale(0.982); background: #f5f9ff; border-color: #93c5fd; transition-duration: 100ms; }
 .result-topline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 4px; }
 .kind-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 800; }
 .kind-category { color: #1d4ed8; background: #dbeafe; }
@@ -411,7 +421,9 @@ mark { padding: 0 2px; border-radius: 3px; color: #4338ca; background: #e0e7ff; 
 @keyframes spin { to { transform: rotate(360deg); } }
 .pagination { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 16px; color: #64748b; font-size: 13px; }
 .pagination button { min-height: 36px; padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #475569; font: inherit; cursor: pointer; }
+.pagination button { transition: border-color .16s, color .16s, transform var(--motion-micro, 140ms) var(--ease-micro, cubic-bezier(0.2, 0, 0, 1)); }
 .pagination button:hover:not(:disabled) { border-color: #a5b4fc; color: #2563eb; }
+.pagination button:active:not(:disabled) { transform: scale(0.96); }
 .pagination button:disabled { opacity: .45; cursor: not-allowed; }
 @media (max-width: 640px) {
   .search-hero { position: static; padding: 12px 14px; box-shadow: none; }
@@ -428,7 +440,7 @@ mark { padding: 0 2px; border-radius: 3px; color: #4338ca; background: #e0e7ff; 
 }
 @media (prefers-reduced-motion: reduce) {
   .result-card, .result-list.refreshing, .result-open-icon { transition: none; }
-  .result-card:hover { transform: none; }
+  .result-card:hover, .result-card:active, .filter-button:active, .suggestions button:active, .pagination button:active { transform: none; }
   .loading-spinner { animation: none; }
 }
 </style>

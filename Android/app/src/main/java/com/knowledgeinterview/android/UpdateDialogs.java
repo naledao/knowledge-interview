@@ -24,24 +24,47 @@ final class UpdateDialogs {
     /** 长时间操作保持进度卡片可见，完成、失败或取消结束后由调用方关闭。 */
     static final class Busy {
         final Dialog dialog;
+        private final Activity activity;
+        private final LinearLayout card;
         private final TextView status;
         private final ProgressBar bar;
+        private final TextView actionButton;
 
-        Busy(Dialog dialog, TextView status, ProgressBar bar) {
+        Busy(Activity activity, Dialog dialog, LinearLayout card, TextView status, ProgressBar bar, TextView actionButton) {
+            this.activity = activity;
             this.dialog = dialog;
+            this.card = card;
             this.status = status;
             this.bar = bar;
+            this.actionButton = actionButton;
         }
 
         void update(String description, int percent) {
             if (!dialog.isShowing()) return;
             status.setText(description);
             bar.setIndeterminate(percent < 0);
-            if (percent >= 0) bar.setProgress(Math.min(100, Math.max(0, percent)));
+            if (percent >= 0) MotionHelper.animateProgress(bar, percent);
+        }
+
+        /** 下载校验完成后切换为“立即安装”主按钮状态并附带轻弹反馈。 */
+        void markReadyToInstall(String description, Runnable onInstall) {
+            if (!dialog.isShowing()) return;
+            status.setText(description);
+            bar.setIndeterminate(false);
+            MotionHelper.animateProgress(bar, 100);
+            if (actionButton != null) {
+                actionButton.setEnabled(true);
+                actionButton.setAlpha(1f);
+                actionButton.setText("立即安装");
+                actionButton.setTextColor(Color.WHITE);
+                actionButton.setBackground(MotionHelper.ripple(0x33FFFFFF, shape(activity, BLUE, 10, Color.TRANSPARENT)));
+                actionButton.setOnClickListener(v -> MotionHelper.animateDialogExit(dialog, card, onInstall));
+                MotionHelper.animateBounce(actionButton);
+            }
         }
 
         void dismiss() {
-            if (dialog.isShowing()) dialog.dismiss();
+            MotionHelper.animateDialogExit(dialog, card);
         }
     }
 
@@ -63,7 +86,6 @@ final class UpdateDialogs {
         versionParams.topMargin = dp(activity, 24);
         card.addView(versions, versionParams);
 
-
         LinearLayout actions = new LinearLayout(activity);
         actions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         TextView later = button(activity, "稍后", false);
@@ -75,11 +97,8 @@ final class UpdateDialogs {
         LinearLayout.LayoutParams actionsParams = new LinearLayout.LayoutParams(-1, -2);
         actionsParams.topMargin = dp(activity, 25);
         card.addView(actions, actionsParams);
-        later.setOnClickListener(v -> dialog.dismiss());
-        install.setOnClickListener(v -> {
-            dialog.dismiss();
-            accept.run();
-        });
+        later.setOnClickListener(v -> MotionHelper.animateDialogExit(dialog, card));
+        install.setOnClickListener(v -> MotionHelper.animateDialogExit(dialog, card, accept));
         show(activity, dialog, card, true);
         return dialog;
     }
@@ -93,6 +112,7 @@ final class UpdateDialogs {
         statusParams.topMargin = dp(activity, 25);
         card.addView(status, statusParams);
         ProgressBar bar = new ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal);
+        bar.setMax(100);
         bar.setIndeterminateTintList(ColorStateList.valueOf(BLUE));
         bar.setProgressTintList(ColorStateList.valueOf(BLUE));
         bar.setProgressBackgroundTintList(ColorStateList.valueOf(Color.rgb(219, 234, 254)));
@@ -100,25 +120,27 @@ final class UpdateDialogs {
         LinearLayout.LayoutParams barParams = new LinearLayout.LayoutParams(-1, dp(activity, 7));
         barParams.topMargin = dp(activity, 16);
         card.addView(bar, barParams);
+        TextView cancel = null;
         if (onCancel != null) {
-            TextView cancel = button(activity, "取消下载", false);
+            cancel = button(activity, "取消下载", false);
             LinearLayout actions = new LinearLayout(activity);
             actions.setGravity(Gravity.END);
             actions.addView(cancel, new LinearLayout.LayoutParams(dp(activity, 104), dp(activity, 44)));
             LinearLayout.LayoutParams actionsParams = new LinearLayout.LayoutParams(-1, -2);
             actionsParams.topMargin = dp(activity, 23);
             card.addView(actions, actionsParams);
-            cancel.setOnClickListener(v -> {
-                cancel.setEnabled(false);
-                cancel.setAlpha(0.65f);
-                cancel.setText("正在取消");
+            final TextView cancelBtn = cancel;
+            cancelBtn.setOnClickListener(v -> {
+                cancelBtn.setEnabled(false);
+                cancelBtn.setAlpha(0.65f);
+                cancelBtn.setText("正在取消");
                 status.setText("正在取消下载，请稍候…");
                 bar.setIndeterminate(true);
                 onCancel.run();
             });
         }
         show(activity, dialog, card, false);
-        return new Busy(dialog, status, bar);
+        return new Busy(activity, dialog, card, status, bar, cancel);
     }
 
     private static LinearLayout card(Activity activity, String title, String subtitle) {
@@ -149,8 +171,12 @@ final class UpdateDialogs {
     private static TextView button(Activity activity, String label, boolean primary) {
         TextView button = text(activity, label, 14, primary ? Color.WHITE : Color.rgb(71, 85, 105), true);
         button.setGravity(Gravity.CENTER);
-        button.setBackground(shape(activity, primary ? BLUE : Color.rgb(241, 245, 249), 10, Color.TRANSPARENT));
+        button.setBackground(MotionHelper.ripple(
+                primary ? 0x33FFFFFF : 0x182563EB,
+                shape(activity, primary ? BLUE : Color.rgb(241, 245, 249), 10, Color.TRANSPARENT)
+        ));
         button.setClickable(true);
+        MotionHelper.attachPressScale(button);
         return button;
     }
 
@@ -188,5 +214,6 @@ final class UpdateDialogs {
             attributes.dimAmount = 0.38f;
             window.setAttributes(attributes);
         }
+        MotionHelper.animateDialogEnter(content);
     }
 }

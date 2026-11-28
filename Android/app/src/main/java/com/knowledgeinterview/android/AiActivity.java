@@ -1,20 +1,26 @@
 package com.knowledgeinterview.android;
 
+import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.HttpAuthHandler;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
-import android.webkit.HttpAuthHandler;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
@@ -24,15 +30,26 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
-
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** AI 模块使用独立 WebView，与知识题库的本地资源及 API 拦截隔离。 */
 public class AiActivity extends Activity {
+    private enum ConnectionState {
+        LOADING, READY, ERROR
+    }
+
     private static final String AI_HOST = "frp.kangnasi.xyz";
     private static final int PRIMARY = Color.rgb(49, 94, 210);
+    private static final int DOT_LOADING = Color.rgb(99, 102, 241);
+    private static final int DOT_READY = Color.rgb(34, 197, 94);
+    private static final int DOT_ERROR = Color.rgb(239, 68, 68);
     private WebView webView;
     private ProgressBar progress;
     private TextView errorMessage;
+    private View statusDot;
+    private GradientDrawable statusDotDrawable;
+    private ValueAnimator statusDotAnimator;
+    private Button refreshButton;
     private boolean applyingProxy;
     private int proxyGeneration;
     private LinearLayout errorPanel;
@@ -44,12 +61,21 @@ public class AiActivity extends Activity {
     private boolean mainLoadFailed;
     private int appliedProxyPort = -1;
     private boolean proxyRouteDirty;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Runnable progressFadeRunnable = this::fadeOutProgressBar;
     private static java.lang.ref.WeakReference<AiActivity> activeInstance = new java.lang.ref.WeakReference<>(null);
 
     @Override
     @SuppressLint("SetJavaScriptEnabled")
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        MotionHelper.configureDeclarativeTransitions(
+                this,
+                R.anim.slide_in_right_fade,
+                R.anim.slide_out_left_scale,
+                R.anim.slide_in_left_scale,
+                R.anim.slide_out_right_fade
+        );
         credentialStore = new AiCredentialStore(this);
         getWindow().setStatusBarColor(Color.WHITE);
         getWindow().setNavigationBarColor(Color.WHITE);
@@ -61,14 +87,31 @@ public class AiActivity extends Activity {
         toolbar.setGravity(Gravity.CENTER_VERTICAL);
         toolbar.setPadding(dp(4), 0, dp(4), 0);
         toolbar.addView(action("‹ 题库", v -> returnToKnowledge()));
+
+        LinearLayout titleGroup = new LinearLayout(this);
+        titleGroup.setOrientation(LinearLayout.HORIZONTAL);
+        titleGroup.setGravity(Gravity.CENTER);
+        statusDot = new View(this);
+        statusDotDrawable = new GradientDrawable();
+        statusDotDrawable.setShape(GradientDrawable.OVAL);
+        statusDotDrawable.setColor(DOT_LOADING);
+        statusDot.setBackground(statusDotDrawable);
+        LinearLayout.LayoutParams dotParams = new LinearLayout.LayoutParams(dp(6), dp(6));
+        dotParams.rightMargin = dp(7);
+        titleGroup.addView(statusDot, dotParams);
         TextView title = new TextView(this);
         title.setText("AI 助手");
         title.setTextColor(Color.rgb(15, 23, 42));
         title.setTextSize(19);
         title.setTypeface(null, Typeface.BOLD);
-        title.setGravity(Gravity.CENTER);
-        toolbar.addView(title, new LinearLayout.LayoutParams(0, dp(56), 1));
-        toolbar.addView(action("刷新", v -> reloadPage()));
+        titleGroup.addView(title);
+        toolbar.addView(titleGroup, new LinearLayout.LayoutParams(0, dp(56), 1));
+
+        refreshButton = action("刷新", v -> {
+            MotionHelper.animateBounce(refreshButton);
+            reloadPage();
+        });
+        toolbar.addView(refreshButton);
         root.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(56)));
         View separator = new View(this);
         separator.setBackgroundColor(Color.rgb(226, 233, 245));
@@ -84,6 +127,17 @@ public class AiActivity extends Activity {
         settings.setAllowContentAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onProgressChanged(WebView view, int newProgress) {
+                if (mainLoadFailed) return;
+                if (newProgress < 100) {
+                    showDeterminateProgress(newProgress);
+                } else {
+                    completeProgressSmoothly();
+                }
+            }
+        });
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
@@ -102,8 +156,10 @@ public class AiActivity extends Activity {
             @Override
             public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
                 mainLoadFailed = false;
+                errorPanel.animate().cancel();
                 errorPanel.setVisibility(View.GONE);
-                progress.setVisibility(View.VISIBLE);
+                setConnectionState(ConnectionState.LOADING);
+                showDeterminateProgress(12);
             }
 
             @Override
@@ -115,7 +171,10 @@ public class AiActivity extends Activity {
                         Toast.makeText(AiActivity.this, "登录成功，但无法安全保存账号，下次可能需要重新登录", Toast.LENGTH_LONG).show();
                     }
                 }
-                progress.setVisibility(View.GONE);
+                if (!mainLoadFailed) {
+                    setConnectionState(ConnectionState.READY);
+                    completeProgressSmoothly();
+                }
             }
 
             @Override
@@ -156,17 +215,116 @@ public class AiActivity extends Activity {
         errorPanel.setVisibility(View.GONE);
         content.addView(errorPanel, new FrameLayout.LayoutParams(-1, -1));
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-        progress.setIndeterminate(true);
-        progress.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(PRIMARY));
+        progress.setMax(100);
+        progress.setIndeterminate(false);
+        progress.setIndeterminateTintList(ColorStateList.valueOf(PRIMARY));
+        progress.setProgressTintList(ColorStateList.valueOf(PRIMARY));
+        progress.setProgressBackgroundTintList(ColorStateList.valueOf(Color.rgb(219, 234, 254)));
         progress.setVisibility(View.GONE);
         content.addView(progress, new FrameLayout.LayoutParams(-1, dp(3), Gravity.TOP));
         root.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
         activeInstance = new java.lang.ref.WeakReference<>(this);
+        setConnectionState(ConnectionState.LOADING);
 
         applyNetworkRoute(() -> {
             if (state == null || webView.restoreState(state) == null) openConfiguredAddress();
         });
+    }
+
+    private void setConnectionState(ConnectionState state) {
+        if (statusDot == null || statusDotDrawable == null) return;
+        if (statusDotAnimator != null) {
+            statusDotAnimator.cancel();
+            statusDotAnimator = null;
+        }
+        statusDot.setAlpha(1f);
+        statusDot.setScaleX(1f);
+        statusDot.setScaleY(1f);
+        if (state == ConnectionState.LOADING) {
+            statusDotDrawable.setColor(DOT_LOADING);
+            if (MotionHelper.isAnimationsEnabled(this)) {
+                statusDotAnimator = ValueAnimator.ofFloat(0f, 1f);
+                statusDotAnimator.setDuration(1300L);
+                statusDotAnimator.setRepeatCount(ValueAnimator.INFINITE);
+                statusDotAnimator.setRepeatMode(ValueAnimator.REVERSE);
+                statusDotAnimator.setInterpolator(MotionHelper.STANDARD_INTERPOLATOR);
+                statusDotAnimator.addUpdateListener(anim -> {
+                    float t = (float) anim.getAnimatedValue();
+                    statusDot.setAlpha(1f - 0.72f * t);
+                    float scale = 1f - 0.22f * t;
+                    statusDot.setScaleX(scale);
+                    statusDot.setScaleY(scale);
+                });
+                statusDotAnimator.start();
+            }
+        } else if (state == ConnectionState.READY) {
+            statusDotDrawable.setColor(DOT_READY);
+        } else {
+            statusDotDrawable.setColor(DOT_ERROR);
+        }
+    }
+
+    private void showIndeterminateProgress() {
+        if (progress == null) return;
+        mainHandler.removeCallbacks(progressFadeRunnable);
+        progress.animate().cancel();
+        progress.setAlpha(1f);
+        progress.setIndeterminate(true);
+        progress.setVisibility(View.VISIBLE);
+    }
+
+    private void showDeterminateProgress(int percent) {
+        if (progress == null) return;
+        mainHandler.removeCallbacks(progressFadeRunnable);
+        progress.animate().cancel();
+        progress.setAlpha(1f);
+        if (progress.getVisibility() != View.VISIBLE) {
+            progress.setVisibility(View.VISIBLE);
+            progress.setIndeterminate(false);
+            progress.setProgress(0);
+        } else if (progress.isIndeterminate()) {
+            progress.setIndeterminate(false);
+            progress.setProgress(0);
+        }
+        MotionHelper.animateProgress(progress, Math.max(percent, 10));
+    }
+
+    private void completeProgressSmoothly() {
+        if (progress == null || progress.getVisibility() != View.VISIBLE) return;
+        mainHandler.removeCallbacks(progressFadeRunnable);
+        progress.animate().cancel();
+        progress.setIndeterminate(false);
+        MotionHelper.animateProgress(progress, 100);
+        if (!MotionHelper.isAnimationsEnabled(this)) {
+            hideProgressImmediate();
+            return;
+        }
+        mainHandler.postDelayed(progressFadeRunnable, 120L);
+    }
+
+    private void fadeOutProgressBar() {
+        if (progress == null || progress.getVisibility() != View.VISIBLE) return;
+        if (!MotionHelper.isAnimationsEnabled(this)) {
+            hideProgressImmediate();
+            return;
+        }
+        progress.animate().cancel();
+        progress.animate()
+                .alpha(0f)
+                .setDuration(180)
+                .setInterpolator(MotionHelper.EXIT_INTERPOLATOR)
+                .withEndAction(this::hideProgressImmediate)
+                .start();
+    }
+
+    private void hideProgressImmediate() {
+        if (progress == null) return;
+        mainHandler.removeCallbacks(progressFadeRunnable);
+        progress.animate().cancel();
+        progress.setVisibility(View.GONE);
+        progress.setAlpha(1f);
+        progress.setProgress(0);
     }
 
     private Button action(String label, View.OnClickListener listener) {
@@ -178,6 +336,8 @@ public class AiActivity extends Activity {
         button.setMinWidth(dp(48));
         button.setMinimumWidth(dp(48));
         button.setPadding(dp(8), 0, dp(8), 0);
+        button.setBackground(MotionHelper.ripple(0x18315ED2, authShape(Color.TRANSPARENT, 8, Color.TRANSPARENT)));
+        MotionHelper.attachPressScale(button);
         button.setOnClickListener(listener);
         return button;
     }
@@ -224,7 +384,7 @@ public class AiActivity extends Activity {
             handler.cancel();
             return;
         }
-        progress.setVisibility(View.GONE);
+        hideProgressImmediate();
         android.app.Dialog dialog = new android.app.Dialog(this, R.style.Theme_KnowledgeInterview_AiDialog);
         authDialog = dialog;
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
@@ -281,22 +441,46 @@ public class AiActivity extends Activity {
         scroll.addView(card, new android.widget.ScrollView.LayoutParams(-1, -2));
         dialog.setContentView(scroll);
         dialog.setCanceledOnTouchOutside(false);
-        dialog.setOnCancelListener(d -> { handler.cancel(); showLoadError(); });
+        AtomicBoolean authDecisionMade = new AtomicBoolean(false);
+        dialog.setOnCancelListener(d -> {
+            if (authDecisionMade.compareAndSet(false, true)) {
+                handler.cancel();
+                showLoadError();
+            }
+        });
         dialog.setOnDismissListener(d -> {
             password.setText("");
             if (authDialog == dialog) authDialog = null;
         });
-        cancel.setOnClickListener(v -> dialog.cancel());
+        cancel.setOnClickListener(v -> MotionHelper.animateDialogExit(dialog, card, () -> {
+            if (authDecisionMade.compareAndSet(false, true)) {
+                handler.cancel();
+                showLoadError();
+            }
+        }));
         login.setOnClickListener(v -> {
-            if (username.getText().length() == 0) { username.setError("请输入用户名"); username.requestFocus(); return; }
-            if (password.getText().length() == 0) { password.setError("请输入密码"); password.requestFocus(); return; }
+            if (username.getText().length() == 0) {
+                username.setError("请输入用户名");
+                username.requestFocus();
+                MotionHelper.shake(username);
+                return;
+            }
+            if (password.getText().length() == 0) {
+                password.setError("请输入密码");
+                password.requestFocus();
+                MotionHelper.shake(password);
+                return;
+            }
             String account = username.getText().toString();
             String secret = password.getText().toString();
             authAttempted = true;
             pendingCredentials = new AiCredentialStore.Credentials(account, secret);
-            dialog.dismiss();
-            progress.setVisibility(View.VISIBLE);
-            handler.proceed(account, secret);
+            authDecisionMade.set(true);
+            MotionHelper.animateDialogExit(dialog, card, () -> {
+                setConnectionState(ConnectionState.LOADING);
+                showIndeterminateProgress();
+                handler.proceed(account, secret);
+            });
         });
         username.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId != android.view.inputmethod.EditorInfo.IME_ACTION_NEXT) return false;
@@ -320,6 +504,7 @@ public class AiActivity extends Activity {
             window.setGravity(Gravity.CENTER);
             window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE | android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
         }
+        MotionHelper.animateDialogEnter(card);
     }
 
     private android.graphics.drawable.GradientDrawable authShape(int color, int radius, int stroke) {
@@ -373,15 +558,20 @@ public class AiActivity extends Activity {
         button.setMinimumHeight(0);
         button.setMinHeight(0);
         button.setStateListAnimator(null);
-        button.setBackground(new android.graphics.drawable.RippleDrawable(
-                android.content.res.ColorStateList.valueOf(primary ? 0x33FFFFFF : 0x15315ED2),
-                authShape(primary ? PRIMARY : Color.rgb(241, 245, 249), 11, Color.TRANSPARENT), null));
+        button.setBackground(MotionHelper.ripple(
+                primary ? 0x33FFFFFF : 0x15315ED2,
+                authShape(primary ? PRIMARY : Color.rgb(241, 245, 249), 11, Color.TRANSPARENT)
+        ));
+        MotionHelper.attachPressScale(button);
         return button;
     }
 
     private void showLoadError() {
-        progress.setVisibility(View.GONE);
-        errorPanel.setVisibility(View.VISIBLE);
+        hideProgressImmediate();
+        setConnectionState(ConnectionState.ERROR);
+        if (errorPanel.getVisibility() != View.VISIBLE) {
+            MotionHelper.animatePanelEnter(errorPanel);
+        }
     }
 
     /** 必须等待 WebView 代理设置生效，之后才能发起网页请求。 */
@@ -391,7 +581,8 @@ public class AiActivity extends Activity {
         proxyRouteDirty = false;
         int generation = ++proxyGeneration;
         webView.getSettings().setBlockNetworkLoads(true);
-        progress.setVisibility(View.VISIBLE);
+        setConnectionState(ConnectionState.LOADING);
+        showIndeterminateProgress();
         boolean enabled = TrojanProxyManager.loadConfig(this).enabled;
         boolean supported = androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.PROXY_OVERRIDE);
         final int routePort = enabled ? TrojanProxyManager.ensureLocalProxyPort(this) : 0;
@@ -404,8 +595,8 @@ public class AiActivity extends Activity {
             }
             appliedProxyPort = routePort;
             errorMessage.setText("暂时无法连接 AI 服务\n请检查网络或代理设置后重试");
+            errorPanel.animate().cancel();
             errorPanel.setVisibility(View.GONE);
-            progress.setVisibility(View.GONE);
             webView.getSettings().setBlockNetworkLoads(false);
             android.util.Log.i("AiNetwork", enabled ? "Trojan WebView proxy applied" : "Built-in proxy disabled");
             ready.run();
@@ -435,7 +626,7 @@ public class AiActivity extends Activity {
             proxyError("无法应用内置代理设置，请检查代理配置及 WebView 版本。");
             return;
         }
-        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+        mainHandler.postDelayed(() -> {
             if (!isFinishing() && !isDestroyed() && applyingProxy && generation == proxyGeneration) {
                 proxyError("代理配置超时，请重试。");
             }
@@ -479,6 +670,7 @@ public class AiActivity extends Activity {
         android.content.Intent intent = new android.content.Intent(this, MainActivity.class);
         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
         startActivity(intent);
+        MotionHelper.applyTransition(this, R.anim.slide_in_left_scale, R.anim.slide_out_right_fade);
     }
 
     static void onProxyConfigurationChanging() {
@@ -505,6 +697,10 @@ public class AiActivity extends Activity {
         boolean needsLoad = webView.getUrl() == null || errorPanel.getVisibility() == View.VISIBLE;
         applyNetworkRoute(() -> {
             if (needsLoad) openConfiguredAddress();
+            else {
+                setConnectionState(ConnectionState.READY);
+                completeProgressSmoothly();
+            }
         });
     }
 
@@ -530,6 +726,11 @@ public class AiActivity extends Activity {
     protected void onDestroy() {
         if (activeInstance.get() == this) activeInstance.clear();
         ++proxyGeneration;
+        mainHandler.removeCallbacks(progressFadeRunnable);
+        if (statusDotAnimator != null) {
+            statusDotAnimator.cancel();
+            statusDotAnimator = null;
+        }
         pendingCredentials = null;
         if (authDialog != null) authDialog.cancel();
         webView.stopLoading();
